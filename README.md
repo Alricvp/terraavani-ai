@@ -1,4 +1,6 @@
-# 🛰️ TerraSentinel AI
+# 🌍 Terraavani AI
+
+> *"Terra" (Latin: Earth) + "Avani" (Sanskrit: Earth) — the Earth, watching over itself.*
 
 > A resilient, AI-powered environmental monitoring network — distributed smart sensor nodes with on-device edge AI, real multi-hazard data fusion, and actionable early warnings for floods, landslides, forest fires, air pollution, and extreme heat across India.
 
@@ -45,7 +47,7 @@ Solar powered, works offline                Forwards alerts to cloud
 
 ## 📊 Project Inheritance
 
-TerraSentinel AI evolves from our SIH project **Landsafe AI** ([github.com/Alricvp/landsafe-ai](https://github.com/Alricvp/landsafe-ai), live at [landsafe-ai.onrender.com](https://landsafe-ai.onrender.com)) — a working landslide early-warning platform with:
+Terraavani AI evolves from our SIH project **Landsafe AI** ([github.com/Alricvp/landsafe-ai](https://github.com/Alricvp/landsafe-ai), live at [landsafe-ai.onrender.com](https://landsafe-ai.onrender.com)) — a working landslide early-warning platform with:
 
 - ✅ Proven ESP32 firmware (median filter, auto-calibration, OLED interface)
 - ✅ FastAPI + WebSocket real-time backend on Render

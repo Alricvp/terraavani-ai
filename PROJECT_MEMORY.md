@@ -1,10 +1,10 @@
-# TerraSentinel AI — Complete Project Memory
+# Terraavani AI — Complete Project Memory
 
 > Hand this file to any AI agent (or teammate) and it can continue the project instantly.
 
 ## What This Project Is
 
-**TerraSentinel AI** — a resilient, AI-powered environmental monitoring network for
+**Terraavani AI** — a resilient, AI-powered environmental monitoring network for
 **Smart India Hackathon PS 26178** (Qualcomm Inc · Disaster Management · Hardware).
 
 Core pitch: "One cheap sensor node, every hazard." Distributed solar-powered ESP32
@@ -31,7 +31,7 @@ This team previously built **Landsafe AI** (landslide early warning for NER):
 
 | Decision | Choice | Reason |
 |---|---|---|
-| Name | **TerraSentinel AI** | Unique name → free #1 Google ranking; sentinel = monitoring vibe |
+| Name | **Terraavani AI** | Unique (verified via search — zero tech hits); Terra (Latin) + Avani (Sanskrit: Earth) — "Earth watching over Earth"; renamed from working title TerraSentinel |
 | Hosting | **Render, NEW workspace** | 750 free instance hours are PER WORKSPACE — new workspace = fresh hours; Vercel lacks WebSocket support; Railway/Glitch dead/paid |
 | Repo strategy | Keep landsafe-ai frozen; new `terrasentinel-ai` repo | Two repos = portfolio progression; never delete landsafe-ai (Render depends on it) |
 | AI on device | Edge AI is REQUIRED by PS (Qualcomm judges this hard) | Anomaly detection (z-score) + risk fusion on ESP32; transmit alerts only |
@@ -102,12 +102,21 @@ Total node BOM ≈ ₹1,800 (vs ₹3–20 lakh commercial station — the budget
 8. `.gitignore` personal images, PDFs, PROJECT_MEMORY.md (this file) — repo must look
    professional to judges.
 
+## Standing Rules
+
+1. **Never add AI co-author trailers to commits** — no "Co-Authored-By" lines.
+   Commit as the user's git identity only (Alricvp). AI-attributed commits can
+   cause hackathon disqualification.
+2. Never delete/rename the landsafe-ai repo (Render deployment depends on it).
+3. Bump sw.js cache version on every dashboard/service-worker deploy.
+4. Repo must stay judge-clean: no personal images, PDFs, or internal notes tracked.
+
 ## Phase Plan
 
 - [x] Phase 0 — Foundation (this repo skeleton + memory file)
 - [ ] Phase 1 — Backend: copy FastAPI skeleton; add Open-Meteo Flood API + Air
       Quality API + NASA FIRMS fire data endpoints
-- [ ] Phase 2 — Dashboard: port + rebrand to TerraSentinel; multi-hazard tab views
+- [ ] Phase 2 — Dashboard: port + rebrand to Terraavani; multi-hazard tab views
 - [ ] Phase 3 — Edge-AI firmware: on-device z-score anomaly detection, risk fusion,
       alert-only transmission mode
 - [ ] Phase 4 — Multi-sensor hardware: buy parts (~₹1,200 demo budget), wire
