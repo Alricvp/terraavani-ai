@@ -27,6 +27,14 @@ This team previously built **Landsafe AI** (landslide early warning for NER):
   PS due to a registration fumble, so the team pivoted to PS 26178 which explicitly lists
   landslide precursors among hazards — nothing built is wasted.
 
+## Current Status (updated Sep 27, 2026)
+
+- PAUSED at end of Phase 0: repo foundation complete (README + this memory),
+  2 clean commits, NO remote yet, NO code yet.
+- Next actions when resuming: (1) user creates empty `terraavani-ai` repo on
+  GitHub, (2) push commits, (3) start Phase 1 backend.
+- Do NOT start coding until the user says so.
+
 ## Key Decisions (do not re-litigate)
 
 | Decision | Choice | Reason |
