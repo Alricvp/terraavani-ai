@@ -29,7 +29,7 @@ This team previously built **Landsafe AI** (landslide early warning for NER):
 
 ## Current Status (updated Sep 27, 2026, evening)
 
-- CODE-READY MVP. Working tree (all committed locally, NO remote yet):
+- CODE-READY MVP. Working tree (all committed and PUSHED to GitHub (remote: main branch)):
   - backend/server.py — Landsafe FastAPI port, rebranded Terraavani AI v1.0.0,
     + NEW /api/hazards endpoint (10 NE cities: flood via Open-Meteo Flood API
     GloFAS river discharge, air quality via CAMS PM2.5/PM10/European-AQI,
@@ -41,7 +41,7 @@ This team previously built **Landsafe AI** (landslide early warning for NER):
   - render.yaml — service name terraavani-ai, PYTHON_VERSION 3.11.0.
 - User explicitly said: "make a repo with code ready so we can directly start
   working later" — so do NOT deploy/create Render until user asks.
-- NEXT SESSION: (1) user creates empty GitHub repo `terraavani-ai` -> push,
+- NEXT SESSION: (1) DONE - repo live at github.com/Alricvp/terraavani-ai (branch: main),
   (2) optional: new Render workspace -> deploy -> test /api/hazards live,
   (3) then Phase 2 UI work: multi-hazard cards/tab in dashboard using /api/hazards,
   (4) Phase 3 edge-AI firmware, (5) hardware additions (HC-SR04/DHT22/MQ-135/solar).
