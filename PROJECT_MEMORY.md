@@ -27,13 +27,24 @@ This team previously built **Landsafe AI** (landslide early warning for NER):
   PS due to a registration fumble, so the team pivoted to PS 26178 which explicitly lists
   landslide precursors among hazards — nothing built is wasted.
 
-## Current Status (updated Sep 27, 2026)
+## Current Status (updated Sep 27, 2026, evening)
 
-- PAUSED at end of Phase 0: repo foundation complete (README + this memory),
-  2 clean commits, NO remote yet, NO code yet.
-- Next actions when resuming: (1) user creates empty `terraavani-ai` repo on
-  GitHub, (2) push commits, (3) start Phase 1 backend.
-- Do NOT start coding until the user says so.
+- CODE-READY MVP. Working tree (all committed locally, NO remote yet):
+  - backend/server.py — Landsafe FastAPI port, rebranded Terraavani AI v1.0.0,
+    + NEW /api/hazards endpoint (10 NE cities: flood via Open-Meteo Flood API
+    GloFAS river discharge, air quality via CAMS PM2.5/PM10/European-AQI,
+    heat via tmax index; cached 10 min; batch-fetch works, verified live).
+  - backend/dashboard.html — full PWA ported + rebranded TERRAAVANI AI
+    (0 landsafe strings remain; storage keys terraavani-*; sw cache terraavani-v1).
+  - backend/sw.js, manifest.json, historical.json, requirements.txt — ported+rebranded.
+  - firmware/tilt_detector_oled/ — proven ESP32 node firmware (MPU-6500+moisture+OLED).
+  - render.yaml — service name terraavani-ai, PYTHON_VERSION 3.11.0.
+- User explicitly said: "make a repo with code ready so we can directly start
+  working later" — so do NOT deploy/create Render until user asks.
+- NEXT SESSION: (1) user creates empty GitHub repo `terraavani-ai` -> push,
+  (2) optional: new Render workspace -> deploy -> test /api/hazards live,
+  (3) then Phase 2 UI work: multi-hazard cards/tab in dashboard using /api/hazards,
+  (4) Phase 3 edge-AI firmware, (5) hardware additions (HC-SR04/DHT22/MQ-135/solar).
 
 ## Key Decisions (do not re-litigate)
 

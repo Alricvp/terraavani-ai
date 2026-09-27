@@ -6,7 +6,7 @@
 
 **Problem Statement:** SIH PS 26178 — *Environmental Intelligence Network* (Qualcomm Inc · Disaster Management · Hardware)
 
-**Status:** 🚧 Under construction — foundation phase
+**Status:** 🟢 MVP code-ready — multi-hazard backend + full PWA dashboard, awaiting first deploy
 
 ---
 

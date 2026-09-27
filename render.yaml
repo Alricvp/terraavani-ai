@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: terraavani-ai
+    runtime: python
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: cd backend && python server.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.0"

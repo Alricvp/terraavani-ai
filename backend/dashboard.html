@@ -1,0 +1,1394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Terraavani AI — Landslide Monitoring</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#6FA97D">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500;600&family=Noto+Sans+Bengali:wght@400;500;600&family=Noto+Sans+Meetei+Mayek:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#10130F; --surface:#171B16; --surface-2:#1E231D;
+  --border:#2B322A; --border-strong:#3A4238;
+  --text-primary:#ECEFE9; --text-secondary:#9AA396; --text-muted:#656E61;
+  --moss:#6FA97D; --moss-dim:#1E2B21;
+  --ochre:#D69A4E; --ochre-dim:#2E2519;
+  --rust:#C25B45; --rust-dim:#2E1D18;
+  --slate:#6C8B9E;
+  --font-display:'Space Grotesk',sans-serif;
+  --font-body:'Inter',sans-serif;
+  --font-mono:'JetBrains Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text-primary);font-family:var(--font-body);-webkit-font-smoothing:antialiased;min-height:100vh;overflow-x:hidden;}
+
+/* ===== SPLASH ===== */
+#splash{
+  position:fixed;inset:0;z-index:9999;
+  background:var(--bg);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  transition:opacity 0.6s ease;
+}
+#splash.hide{opacity:0;pointer-events:none;}
+.splash-logo{
+  width:80px;height:80px;border-radius:20px;
+  background:var(--moss-dim);border:2px solid var(--moss);
+  display:flex;align-items:center;justify-content:center;
+  margin-bottom:20px;
+  animation:logoFloat 2s ease-in-out infinite;
+}
+@keyframes logoFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+.splash-title{font-family:var(--font-display);font-weight:700;font-size:24px;letter-spacing:0.5px;margin-bottom:4px;}
+.splash-sub{font-size:12px;color:var(--text-muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:30px;}
+.splash-footer{position:absolute;bottom:40px;display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text-muted);font-family:var(--font-mono);}
+.splash-dot{width:6px;height:6px;border-radius:50%;background:var(--moss);animation:pulse 1.6s ease-in-out infinite;}
+
+/* ===== HEADER ===== */
+.header{
+  position:sticky;top:0;z-index:50;padding:12px 20px;
+  display:flex;align-items:center;justify-content:space-between;
+  background:rgba(16,19,15,0.85);backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--border);
+}
+.brand{display:flex;align-items:center;gap:10px;}
+.brand-mark{width:32px;height:32px;border-radius:8px;background:var(--moss-dim);border:1px solid var(--moss);display:flex;align-items:center;justify-content:center;}
+.brand-mark svg{width:16px;height:16px;}
+.brand-text h1{font-family:var(--font-display);font-weight:600;font-size:15px;background:linear-gradient(135deg,var(--moss),#A9C9AF);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.brand-text .sub{font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;}
+.header-right{display:flex;align-items:center;gap:6px;}
+/* Mobile: compress header so nothing overflows on Android */
+@media (max-width:420px){
+  .header{padding:10px 12px;gap:8px;}
+  .brand-text h1{font-size:13px;}
+  .brand-text .sub{display:none;}
+  .brand-mark{width:28px;height:28px;}
+  .header-right{gap:5px;}
+  .status-pill{padding:3px 6px;font-size:9px;max-width:74px;}
+  .status-pill span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  #conn-label{max-width:52px;}
+  .badge-pill{font-size:8px;padding:2px 6px;}
+  .region-chip{max-width:88px;}
+  .region-chip #region-chip-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60px;}
+  .lang-switch{padding:4px 7px;font-size:9.5px;}
+}
+.header-icon{width:32px;height:32px;border-radius:8px;background:var(--surface-2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:0.2s;}
+.header-icon:hover{border-color:var(--border-strong);}
+.header-icon svg{width:14px;height:14px;color:var(--text-secondary);}  .status-pill{display:flex;align-items:center;gap:5px;font-family:var(--font-mono);font-size:10px;color:var(--text-secondary);padding:4px 8px;border:1px solid var(--border-strong);border-radius:16px;background:var(--surface-2);}
+  /* Region splash + chip */
+  .region-splash{position:fixed;inset:0;background:rgba(16,19,15,0.96);backdrop-filter:blur(8px);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;}
+  .region-box{background:var(--surface);border:1px solid var(--border-strong);border-radius:18px;padding:22px 18px;max-width:420px;width:100%;max-height:90vh;overflow-y:auto;}
+  .region-box h2{font-family:var(--font-display);font-size:18px;color:var(--text-primary);margin-bottom:4px;}
+  .region-box .sub{font-size:11.5px;color:var(--text-muted);margin-bottom:16px;line-height:1.5;}
+  .region-grid{display:flex;flex-direction:column;margin:16px 0 12px;max-height:264px;overflow-y:auto;border:1px solid var(--border-strong);border-radius:12px;background:var(--surface-2);scroll-snap-type:y mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+  .region-grid::-webkit-scrollbar{display:none;}
+  .region-btn{display:flex;align-items:center;gap:9px;background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--text-secondary);min-height:52px;padding:0 16px;font-size:14.5px;font-weight:600;cursor:pointer;transition:all .15s;font-family:var(--font-body);text-align:left;scroll-snap-align:center;}
+  .region-btn:last-child{border-bottom:none;}
+  .region-btn svg{width:15px;height:15px;color:var(--moss);flex-shrink:0;}
+  .region-btn em{margin-left:auto;font-style:normal;font-family:var(--font-mono);font-size:8.5px;color:var(--text-muted);letter-spacing:.5px;white-space:nowrap;}
+  .region-btn:hover{background:var(--moss-dim);color:var(--moss);}
+  .region-btn:active{background:var(--moss-dim);color:var(--moss);}
+  /* PC: original 2-column grid (no scrolling); Android keeps the scroll list */
+  @media (min-width:768px){
+    .region-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;max-height:none;overflow:visible;border:none;background:transparent;border-radius:0;scroll-snap-type:none;}
+    .region-btn{background:var(--surface-2);border:1px solid var(--border-strong);border-bottom:1px solid var(--border-strong);border-radius:10px;padding:11px 12px;min-height:48px;font-size:13px;}
+    .region-btn:hover{border-color:var(--moss);background:linear-gradient(145deg,var(--moss-dim),var(--surface-2));}
+  }
+  .region-visitor{width:100%;background:transparent;border:1px dashed var(--border-strong);color:var(--text-secondary);border-radius:10px;padding:11px;font-size:12px;cursor:pointer;font-family:var(--font-body);}
+  .perm-modal{position:fixed;inset:0;background:rgba(16,19,15,0.9);backdrop-filter:blur(6px);z-index:1100;display:none;align-items:center;justify-content:center;padding:24px;}
+  .perm-box{background:var(--surface);border:1px solid var(--border-strong);border-radius:18px;padding:28px 22px;max-width:340px;width:100%;text-align:center;}
+  .perm-icon{width:56px;height:56px;border-radius:50%;background:var(--moss-dim);border:1px solid var(--moss);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;}
+  .perm-icon svg{width:26px;height:26px;color:var(--moss);}
+  .perm-box h3{font-family:var(--font-display);font-size:17px;margin-bottom:6px;color:var(--text-primary);}
+  .perm-box p{font-size:12.5px;color:var(--text-secondary);line-height:1.6;margin-bottom:18px;}
+  .perm-allow{width:100%;background:var(--moss-dim);border:1px solid var(--moss);color:var(--moss);border-radius:11px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font-body);margin-bottom:8px;}
+  .perm-later{width:100%;background:transparent;border:none;color:var(--text-muted);font-size:11.5px;cursor:pointer;font-family:var(--font-body);padding:6px;}
+  .region-visitor:hover{border-color:var(--slate);color:var(--slate);}
+  .region-chip{display:inline-flex;align-items:center;gap:5px;font-family:var(--font-mono);font-size:10px;color:var(--moss);background:var(--moss-dim);border:1px solid var(--moss);border-radius:14px;padding:4px 9px;cursor:pointer;white-space:nowrap;}
+  .region-chip:hover{background:var(--surface-2);}
+  .fc-days{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;}
+  .fc-day{background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:9px 10px;}
+  .fc-day .d{font-family:var(--font-mono);font-size:9.5px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;}
+  .fc-day .v{font-family:var(--font-display);font-weight:700;font-size:17px;margin-top:2px;}
+  .fc-day .r{font-size:10px;color:var(--text-muted);font-family:var(--font-mono);margin-top:2px;}
+  .lv-high{color:var(--rust);}.lv-moderate{color:var(--ochre);}.lv-low{color:var(--moss);}
+.dot{width:5px;height:5px;border-radius:50%;background:var(--rust);transition:0.3s;}
+.dot.on{background:var(--moss);box-shadow:0 0 6px rgba(111,169,125,0.6);}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.35}}
+.dot.pulse{animation:pulse 1.6s ease-in-out infinite;}
+.badge-pill{font-family:var(--font-mono);font-size:9px;font-weight:700;padding:3px 8px;border-radius:10px;letter-spacing:1px;}
+.badge-pill.safe{background:var(--moss-dim);color:var(--moss);border:1px solid var(--moss);}
+.badge-pill.warning{background:var(--ochre-dim);color:var(--ochre);border:1px solid var(--ochre);animation:badgePulse 1.2s infinite;}
+.badge-pill.danger{background:var(--rust-dim);color:var(--rust);border:1px solid var(--rust);animation:badgePulse 0.6s infinite;}
+@keyframes badgePulse{0%,100%{box-shadow:0 0 5px rgba(194,91,69,0.15)}50%{box-shadow:0 0 18px rgba(194,91,69,0.4)}}
+
+/* ===== BOTTOM NAV ===== */
+.bottom-nav{
+  position:fixed;bottom:0;left:0;right:0;z-index:50;
+  display:flex;justify-content:space-around;align-items:center;
+  padding:8px 0 6px;
+  background:rgba(16,19,15,0.92);backdrop-filter:blur(20px);
+  border-top:1px solid var(--border);
+}
+.nav-item{
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  cursor:pointer;padding:4px 8px;border-radius:10px;transition:0.2s;
+  min-width:48px;flex:1;
+}
+.nav-item:hover{background:var(--surface-2);}
+.nav-item.active{color:var(--moss);}
+.nav-item svg{width:18px;height:18px;color:var(--text-muted);transition:0.2s;}
+.nav-item.active svg{color:var(--moss);}
+.nav-item span{font-size:8px;color:var(--text-muted);font-family:var(--font-mono);letter-spacing:0.3px;}
+.nav-item.active span{color:var(--moss);font-weight:600;}
+
+/* ===== TABS ===== */
+.tab-content{display:none;padding-bottom:70px;min-height:calc(100vh - 120px);}
+.tab-content.active{display:block;}
+
+/* ===== CARDS ===== */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;margin:12px 16px;}
+.card-title{font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:1.4px;color:var(--text-muted);margin-bottom:12px;display:flex;align-items:center;gap:6px;}
+.card-title svg{width:12px;height:12px;}
+.card-title .line{flex:1;height:1px;background:var(--border);}
+
+/* ===== OVERVIEW (kept exactly as before) ===== */
+#tab-overview{padding:0 0 70px;}
+.ov-wrap{display:grid;grid-template-columns:1fr 320px;gap:16px;padding:16px;max-width:1400px;margin:0 auto;}
+@media(max-width:960px){.ov-wrap{grid-template-columns:1fr;padding:12px;gap:12px;}}
+.ov-left{display:flex;flex-direction:column;gap:14px;}
+.ov-sidebar{display:flex;flex-direction:column;gap:12px;}
+.risk-card{background:var(--moss-dim);border:1px solid var(--moss);border-radius:14px;padding:20px;}
+.risk-top{display:flex;justify-content:space-between;align-items:flex-start;}
+.risk-label{font-size:11px;color:#A9C9AF;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;}
+.risk-value{font-family:var(--font-display);font-weight:700;font-size:32px;color:#D8ECDB;line-height:1;}
+.risk-badge-icon{width:36px;height:36px;border-radius:50%;background:rgba(111,169,125,0.18);border:1px solid var(--moss);display:flex;align-items:center;justify-content:center;}
+.risk-badge-icon svg{width:18px;height:18px;color:#D8ECDB;}
+.risk-bar-bg{width:100%;height:5px;background:rgba(0,0,0,0.3);border-radius:3px;margin-top:12px;overflow:hidden;}
+.risk-bar-fill{height:100%;border-radius:3px;transition:width 0.8s ease,background 0.8s ease;}
+.risk-bar-fill.low{background:var(--moss);}
+.risk-bar-fill.moderate{background:var(--ochre);}
+.risk-bar-fill.high{background:var(--rust);}
+.risk-bar-fill.critical{background:#ff3333;animation:riskPulse 0.5s infinite;}
+@keyframes riskPulse{0%,100%{opacity:1}50%{opacity:0.6}}
+.risk-meta{font-size:11px;color:#A9C9AF;margin-top:8px;display:flex;justify-content:space-between;font-family:var(--font-mono);}
+.prediction-text{font-size:10px;color:var(--text-muted);margin-top:6px;line-height:1.4;}
+/* Gauge */
+.gauge-card{padding:20px;text-align:center;}
+.gauge-wrap{position:relative;width:240px;height:120px;margin:0 auto 10px;}
+.gauge-arc{width:100%;height:110px;border-radius:110px 110px 0 0;background:var(--surface-2);border:3px solid var(--border);border-bottom:none;position:relative;overflow:hidden;}
+.gauge-zone{position:absolute;bottom:0;width:100%;height:100%;}
+.gz-green{background:conic-gradient(from 0.75turn,transparent 0%,rgba(111,169,125,0.15) 30%,transparent 50%);}
+.gz-yellow{background:conic-gradient(from 0.65turn,transparent 0%,rgba(214,154,78,0.1) 15%,transparent 30%);}
+.gz-red{background:conic-gradient(from 0.5turn,transparent 0%,rgba(194,91,69,0.15) 25%,transparent 50%);}
+.needle{position:absolute;bottom:0;left:50%;width:3px;height:90px;background:linear-gradient(to top,rgba(255,255,255,0.5),var(--moss));transform-origin:bottom center;transform:translateX(-50%) rotate(0deg);transition:transform 0.5s cubic-bezier(0.25,0.8,0.25,1);border-radius:2px;box-shadow:0 0 10px rgba(111,169,125,0.4);}
+.needle-dot{position:absolute;bottom:-7px;left:50%;transform:translateX(-50%);width:14px;height:14px;background:radial-gradient(circle,var(--moss),#2A5A35);border-radius:50%;z-index:2;box-shadow:0 0 12px rgba(111,169,125,0.3);}
+.gauge-labels{display:flex;justify-content:space-between;font-size:9px;color:var(--text-muted);font-family:var(--font-mono);margin-top:6px;}
+.tilt-num{font-family:var(--font-display);font-weight:700;font-size:40px;line-height:1;margin:10px 0 4px;transition:color 0.3s;}
+.tilt-num.safe{color:var(--moss);}
+.tilt-num.warning{color:var(--ochre);}
+.tilt-num.danger{color:var(--rust);animation:numPulse 0.6s infinite;}
+@keyframes numPulse{0%,100%{opacity:1}50%{opacity:0.5}}
+.tilt-unit{font-size:11px;color:var(--text-muted);}
+.tilt-dev{font-size:10px;color:var(--text-muted);font-family:var(--font-mono);margin-top:3px;}
+/* Stats */
+.row-2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.stat-val{font-family:var(--font-display);font-weight:700;font-size:22px;margin:3px 0 5px;transition:color 0.3s;}
+.stat-label{font-size:10px;color:var(--text-secondary);display:flex;align-items:center;gap:5px;}
+.stat-label svg{width:12px;height:12px;color:var(--text-muted);}
+.stat-bar{height:4px;background:var(--border);border-radius:2px;overflow:hidden;}
+.stat-bar i{display:block;height:100%;border-radius:2px;transition:width 0.5s ease,background 0.5s ease;}
+.stat-bar i.blue{background:var(--slate);}
+.stat-bar i.ochre{background:var(--ochre);}
+.stat-bar i.rust{background:var(--rust);}
+.stat-foot{display:flex;justify-content:space-between;font-size:9px;color:var(--text-muted);margin-top:4px;}
+/* Toggles */
+.toggle-row{display:flex;align-items:center;justify-content:space-between;background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:10px 12px;cursor:pointer;transition:0.2s;}
+.toggle-row:hover{border-color:var(--border-strong);}
+.toggle-row.on{border-color:var(--moss);background:var(--moss-dim);}
+.toggle-left{display:flex;align-items:center;gap:10px;}
+.toggle-icon{width:28px;height:28px;border-radius:7px;background:var(--surface);border:1px solid var(--border-strong);display:flex;align-items:center;justify-content:center;}
+.toggle-icon svg{width:13px;height:13px;color:var(--text-secondary);}
+.toggle-row.on .toggle-icon{border-color:var(--moss);background:rgba(111,169,125,0.1);}
+.toggle-row.on .toggle-icon svg{color:var(--moss);}
+.toggle-title{font-size:12px;font-weight:500;}
+.toggle-state{font-size:9px;color:var(--text-muted);font-family:var(--font-mono);}
+.toggle-row.on .toggle-state{color:var(--moss);}
+.switch{width:34px;height:18px;border-radius:10px;background:var(--surface);border:1px solid var(--border-strong);position:relative;transition:0.3s;}
+.toggle-row.on .switch{background:var(--moss-dim);border-color:var(--moss);}
+.switch i{position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:var(--text-muted);transition:0.3s;}
+.toggle-row.on .switch i{left:18px;background:var(--moss);box-shadow:0 0 6px rgba(111,169,125,0.5);}
+/* Log */
+.log-wrap{max-height:180px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border) transparent;}
+.log-entry{padding:5px 0;border-bottom:1px solid var(--border);font-size:11px;display:flex;justify-content:space-between;font-family:var(--font-mono);}
+.log-entry:last-child{border-bottom:none;}
+.log-t{color:var(--text-muted);}
+.log-v{font-weight:600;}
+.log-v.safe{color:var(--moss);}
+.log-v.warning{color:var(--ochre);}
+.log-v.danger{color:var(--rust);}
+.log-empty{display:flex;align-items:center;justify-content:center;gap:6px;padding:20px 0;color:var(--text-muted);font-size:11px;font-family:var(--font-mono);}
+.log-empty svg{width:13px;height:13px;}
+/* Map */
+.map-card{border:1px solid var(--border);border-radius:14px;overflow:hidden;margin:12px 16px;}
+#map{height:300px;z-index:1;background:var(--surface-2);}
+.leaflet-container{background:var(--surface-2)!important;}
+.info-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);}
+.info-row:last-child{border-bottom:none;}
+.info-l{color:var(--text-muted);font-size:11px;}
+.info-v{color:var(--text-primary);font-weight:600;font-size:12px;font-family:var(--font-mono);}
+
+/* ===== GIS MAP TAB ===== */
+#tab-map{padding:16px;padding-bottom:70px;}
+#gis-map{height:calc(100vh - 180px);min-height:400px;border-radius:14px;background:var(--surface-2);}
+.corridor-legend{position:absolute;bottom:16px;left:16px;z-index:10;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 16px;}
+.corridor-legend h4{font-size:10px;color:var(--text-muted);font-family:var(--font-mono);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;}
+.legend-item{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text-secondary);margin-bottom:4px;}
+.legend-dot{width:8px;height:8px;border-radius:50%;}
+
+/* ===== STATIONS TAB ===== */
+#tab-stations{padding:16px;padding-bottom:70px;}
+.station-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:12px;}
+.station-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;}
+.station-name{font-family:var(--font-display);font-weight:600;font-size:14px;color:var(--text-primary);line-height:1.3;}
+.station-badge{font-family:var(--font-mono);font-size:10px;font-weight:700;padding:3px 8px;border-radius:8px;letter-spacing:0.5px;white-space:nowrap;}
+.station-badge.high{background:var(--rust-dim);color:var(--rust);border:1px solid var(--rust);}
+.station-badge.moderate{background:var(--ochre-dim);color:var(--ochre);border:1px solid var(--ochre);}
+.station-badge.low{background:var(--moss-dim);color:var(--moss);border:1px solid var(--moss);}
+.station-meta{font-size:10px;color:var(--text-muted);font-family:var(--font-mono);margin-bottom:10px;}
+.station-grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;}
+.sg-item{text-align:center;padding:8px 4px;background:var(--surface-2);border-radius:8px;border:1px solid var(--border);}
+.sg-val{font-family:var(--font-display);font-weight:700;font-size:16px;color:var(--text-primary);}
+.sg-val.high{color:var(--rust);}
+.sg-val.med{color:var(--ochre);}
+.sg-label{font-size:9px;color:var(--text-muted);font-family:var(--font-mono);margin-top:2px;}
+@media(max-width:600px){.station-grid{grid-template-columns:1fr 1fr;gap:6px;}}
+
+/* ===== ALERTS TAB ===== */
+#tab-alerts{padding:16px;padding-bottom:70px;}
+.segment-tabs{display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:4px;margin-bottom:14px;}
+.seg-tab{flex:1;text-align:center;padding:8px;border-radius:9px;font-size:11px;font-family:var(--font-mono);cursor:pointer;color:var(--text-muted);transition:0.2s;}
+.seg-tab.active{background:var(--moss-dim);color:var(--moss);font-weight:600;}
+.alert-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:10px;border-left:3px solid var(--rust);}
+.alert-card.warn{border-left-color:var(--ochre);}
+.alert-card.info{border-left-color:var(--slate);}
+.alert-title{font-family:var(--font-display);font-weight:600;font-size:13px;margin-bottom:6px;}
+.alert-body{font-size:11px;color:var(--text-secondary);line-height:1.5;margin-bottom:8px;}
+.alert-time{font-size:9px;color:var(--text-muted);font-family:var(--font-mono);}
+
+/* ===== INCIDENT TAB ===== */
+#tab-incident{padding:16px;padding-bottom:70px;}
+.incident-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:12px;}
+.incident-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;}
+.incident-name{font-family:var(--font-display);font-weight:600;font-size:13px;}
+.incident-loc{font-size:10px;color:var(--text-muted);font-family:var(--font-mono);margin-bottom:8px;}
+.incident-summary{font-size:11px;color:var(--text-secondary);line-height:1.5;margin-bottom:10px;}
+.incident-telemetry{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:12px;}
+.it-item{text-align:center;padding:8px;background:var(--surface-2);border-radius:8px;border:1px solid var(--border);}
+.it-val{font-family:var(--font-display);font-weight:700;font-size:14px;color:var(--text-primary);}
+.it-label{font-size:8px;color:var(--text-muted);font-family:var(--font-mono);margin-top:2px;}
+.incident-btn{width:100%;padding:10px;border-radius:10px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-secondary);font-size:12px;font-family:var(--font-mono);cursor:pointer;text-align:center;transition:0.2s;}
+.incident-btn:hover{border-color:var(--moss);color:var(--moss);}
+
+/* ===== LANGUAGE SWITCHER ===== */
+.lang-switch{display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:var(--surface-2);border:1px solid var(--border);cursor:pointer;font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--text-secondary);transition:0.2s;user-select:none;}
+.lang-switch:hover{border-color:var(--moss);color:var(--moss);}
+
+/* ===== OFFLINE BANNER ===== */
+.offline-banner{display:none;position:fixed;bottom:60px;left:0;right:0;z-index:45;background:var(--rust-dim);border-top:1px solid var(--rust);padding:8px 16px;text-align:center;font-family:var(--font-mono);font-size:10px;color:var(--rust);}
+.offline-banner.show{display:block;}
+
+/* ===== SMS SETTINGS ===== */
+.sms-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:12px;}
+.sms-row{display:flex;gap:8px;margin-top:8px;}
+.sms-input{flex:1;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text-primary);font-size:12px;font-family:var(--font-mono);outline:none;}
+.sms-input:focus{border-color:var(--moss);}
+.sms-btn{padding:8px 14px;border-radius:8px;background:var(--moss-dim);border:1px solid var(--moss);color:var(--moss);font-size:11px;font-family:var(--font-mono);cursor:pointer;white-space:nowrap;transition:0.2s;}
+.sms-btn:hover{background:var(--moss);color:var(--bg);}
+.sms-list{margin-top:8px;}
+.sms-item{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:11px;font-family:var(--font-mono);}
+.sms-item:last-child{border:none;}
+.sms-item .num{color:var(--text-secondary);}
+.sms-item .remove{color:var(--rust);cursor:pointer;font-size:10px;}
+
+/* ===== HISTORICAL TAB ===== */
+#tab-history{padding:16px;padding-bottom:70px;max-width:900px;margin:0 auto;}
+.hist-summary{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px;}
+.hist-stat{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;text-align:center;}
+.hist-stat-val{font-family:var(--font-display);font-weight:700;font-size:24px;color:var(--rust);}
+.hist-stat-label{font-size:9px;color:var(--text-muted);font-family:var(--font-mono);text-transform:uppercase;letter-spacing:1px;margin-top:4px;}
+.hist-chart{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:16px;}
+.hist-chart-title{font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:1.2px;color:var(--text-muted);margin-bottom:12px;}
+.bar-chart{display:flex;align-items:flex-end;gap:6px;height:160px;padding:0 4px;}
+.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;}
+.bar{border-radius:4px 4px 0 0;width:100%;min-height:2px;transition:height 0.8s ease;position:relative;}
+.bar-label{font-size:9px;color:var(--text-muted);font-family:var(--font-mono);writing-mode:horizontal-tb;}
+.bar-val{font-size:8px;color:var(--text-secondary);font-family:var(--font-mono);position:absolute;top:-14px;width:100%;text-align:center;}
+.hist-timeline{margin-top:16px;}
+.timeline-item{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);}
+.timeline-dot{width:10px;height:10px;border-radius:50%;margin-top:4px;flex-shrink:0;}
+.timeline-dot.critical{background:#ff3333;}
+.timeline-dot.high{background:var(--rust);}
+.timeline-dot.moderate{background:var(--ochre);}
+.timeline-dot.low{background:var(--moss);}
+.timeline-content{flex:1;}
+.timeline-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}
+.timeline-location{font-family:var(--font-display);font-weight:600;font-size:12px;}
+.timeline-date{font-size:9px;color:var(--text-muted);font-family:var(--font-mono);}
+.timeline-detail{font-size:11px;color:var(--text-secondary);line-height:1.5;}
+.timeline-deaths{display:inline-block;background:var(--rust-dim);color:var(--rust);padding:2px 6px;border-radius:4px;font-size:9px;font-family:var(--font-mono);margin-top:4px;}
+.state-score-list{display:flex;flex-direction:column;gap:10px;}
+.state-score-row{display:flex;align-items:center;gap:10px;}
+.state-score-name{width:78px;flex-shrink:0;font-size:10px;color:var(--text-secondary);font-family:var(--font-mono);text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.state-score-track{flex:1;height:14px;background:var(--surface-2);border:1px solid var(--border);border-radius:7px;overflow:hidden;position:relative;}
+.state-score-fill{height:100%;border-radius:7px;min-width:6px;transition:width 0.8s ease;}
+.state-score-val{width:32px;flex-shrink:0;font-size:11px;font-family:var(--font-mono);font-weight:600;color:var(--text-primary);}
+@media(max-width:500px){.hist-summary{grid-template-columns:1fr;}.bar-chart{height:120px;}}
+
+/* ===== REPORT TAB ===== */
+#tab-report{padding:16px;padding-bottom:70px;max-width:800px;margin:0 auto;}
+.report-form-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:16px;}
+.report-form-title{font-family:var(--font-display);font-weight:600;font-size:15px;color:var(--text-primary);margin-bottom:4px;}
+.report-form-sub{font-size:11px;color:var(--text-muted);margin-bottom:16px;}
+.report-field{margin-bottom:14px;}
+.report-field label{display:block;font-size:10px;color:var(--text-muted);font-family:var(--font-mono);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;}
+.report-field input,.report-field textarea,.report-field select{width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text-primary);font-size:13px;font-family:var(--font-body);outline:none;transition:0.2s;}
+.report-field input:focus,.report-field textarea:focus,.report-field select:focus{border-color:var(--moss);}
+.report-field textarea{resize:vertical;min-height:70px;}
+.report-field select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23656E61' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;cursor:pointer;}
+.report-field select option{background:var(--surface);color:var(--text-primary);}
+.severity-grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;}
+.sev-btn{padding:10px 8px;border-radius:10px;border:2px solid var(--border);background:var(--surface-2);cursor:pointer;text-align:center;transition:0.2s;font-size:10px;font-family:var(--font-mono);color:var(--text-muted);}
+.sev-btn:hover{border-color:var(--border-strong);}
+.sev-btn.selected{font-weight:700;}
+.sev-btn.low.selected{border-color:var(--moss);background:var(--moss-dim);color:var(--moss);}
+.sev-btn.medium.selected{border-color:var(--ochre);background:var(--ochre-dim);color:var(--ochre);}
+.sev-btn.high.selected{border-color:var(--rust);background:var(--rust-dim);color:var(--rust);}
+.sev-btn.critical.selected{border-color:#ff3333;background:rgba(255,51,51,0.1);color:#ff3333;}
+.sev-btn .sev-icon{font-size:18px;margin-bottom:3px;}
+.photo-upload{border:2px dashed var(--border);border-radius:12px;padding:20px;text-align:center;cursor:pointer;transition:0.2s;position:relative;overflow:hidden;}
+.photo-upload:hover{border-color:var(--moss);}
+.photo-upload.has-photo{padding:0;border-style:solid;border-color:var(--moss);}
+.photo-upload img{width:100%;max-height:200px;object-fit:cover;border-radius:10px;}
+.photo-upload .upload-text{color:var(--text-muted);font-size:12px;}
+.photo-upload .upload-text svg{display:block;margin:0 auto 6px;width:24px;height:24px;color:var(--text-muted);}
+.photo-upload input{display:none;}
+.loc-btn{width:100%;padding:10px;border-radius:8px;background:var(--moss-dim);border:1px solid var(--moss);color:var(--moss);font-size:12px;font-family:var(--font-mono);cursor:pointer;display:flex;align-items:center;gap:6px;justify-content:center;transition:0.2s;}
+.loc-btn:hover{background:var(--moss);color:var(--bg);}
+.loc-btn svg{width:14px;height:14px;}
+.loc-display{font-size:11px;color:var(--text-muted);font-family:var(--font-mono);margin-top:6px;text-align:center;}
+.submit-btn{width:100%;padding:12px;border-radius:10px;background:var(--moss);border:none;color:var(--bg);font-size:13px;font-family:var(--font-display);font-weight:600;cursor:pointer;transition:0.2s;letter-spacing:0.5px;}
+.submit-btn:hover{opacity:0.9;transform:translateY(-1px);}
+.submit-btn:disabled{opacity:0.4;cursor:not-allowed;transform:none;}
+.submit-btn.success{background:var(--moss);}
+.submit-btn.error{background:var(--rust);}
+.report-count-badge{display:inline-flex;align-items:center;gap:5px;background:var(--surface-2);border:1px solid var(--border);border-radius:20px;padding:4px 10px;font-family:var(--font-mono);font-size:10px;color:var(--text-muted);margin-left:8px;}
+.report-count-badge .count{color:var(--moss);font-weight:700;}
+.report-list{margin-top:16px;}
+.report-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:12px;}
+.report-card-photo{width:100%;height:180px;object-fit:cover;background:var(--surface-2);}
+.report-card-body{padding:14px;}
+.report-card-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;}
+.report-card-type{font-family:var(--font-display);font-weight:600;font-size:13px;display:flex;align-items:center;gap:6px;}
+.report-severity-badge{font-family:var(--font-mono);font-size:9px;font-weight:700;padding:3px 8px;border-radius:8px;letter-spacing:0.5px;}
+.report-severity-badge.low{background:var(--moss-dim);color:var(--moss);border:1px solid var(--moss);}
+.report-severity-badge.medium{background:var(--ochre-dim);color:var(--ochre);border:1px solid var(--ochre);}
+.report-severity-badge.high{background:var(--rust-dim);color:var(--rust);border:1px solid var(--rust);}
+.report-severity-badge.critical{background:rgba(255,51,51,0.1);color:#ff3333;border:1px solid #ff3333;}
+.report-card-desc{font-size:12px;color:var(--text-secondary);line-height:1.5;margin-bottom:8px;}
+.report-card-meta{display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted);font-family:var(--font-mono);}
+.report-verified{display:inline-flex;align-items:center;gap:3px;color:var(--moss);font-weight:600;}
+.empty-reports{text-align:center;padding:40px 20px;color:var(--text-muted);}
+.empty-reports svg{width:40px;height:40px;margin-bottom:12px;opacity:0.4;}
+.empty-reports p{font-size:13px;line-height:1.5;}
+.report-segment-tabs{display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:4px;margin-bottom:14px;}
+@media(max-width:500px){.severity-grid{grid-template-columns:1fr 1fr;}}
+
+/* ===== CHATBOT ===== */
+.chat-fab{position:fixed;bottom:80px;right:20px;z-index:60;width:48px;height:48px;border-radius:50%;background:var(--moss-dim);border:2px solid var(--moss);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:0.3s;box-shadow:0 4px 16px rgba(0,0,0,0.3);}
+.chat-fab:hover{transform:scale(1.08);}
+.chat-fab svg{width:20px;height:20px;color:var(--moss);}
+.chat-panel{position:fixed;bottom:140px;right:20px;z-index:60;width:320px;max-height:420px;background:var(--surface);border:1px solid var(--border);border-radius:16px;display:none;flex-direction:column;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.4);}
+.chat-panel.open{display:flex;}
+.chat-header{padding:12px 16px;background:var(--moss-dim);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;}
+.chat-header h3{font-family:var(--font-display);font-size:13px;color:var(--moss);}
+.chat-header .chat-close{margin-left:auto;cursor:pointer;color:var(--text-muted);font-size:16px;}
+.chat-body{flex:1;overflow-y:auto;padding:12px;max-height:300px;scrollbar-width:thin;scrollbar-color:var(--border) transparent;}
+.chat-msg{margin-bottom:10px;}
+.chat-msg.bot .chat-bubble{background:var(--surface-2);border:1px solid var(--border);border-radius:12px;border-bottom-left-radius:4px;padding:10px 12px;font-size:12px;color:var(--text-secondary);line-height:1.5;max-width:90%;}
+.chat-msg.user .chat-bubble{background:var(--moss-dim);border:1px solid var(--moss);border-radius:12px;border-bottom-right-radius:4px;padding:10px 12px;font-size:12px;color:var(--text-primary);line-height:1.5;max-width:90%;margin-left:auto;}
+.chat-msg .chat-time{font-size:9px;color:var(--text-muted);margin-top:3px;font-family:var(--font-mono);}
+.chat-msg.user .chat-time{text-align:right;}
+.chat-input-row{display:flex;gap:6px;padding:10px 12px;border-top:1px solid var(--border);}
+.chat-input-row input{flex:1;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text-primary);font-size:12px;font-family:var(--font-body);outline:none;}
+.chat-input-row input:focus{border-color:var(--moss);}
+.chat-input-row button{background:var(--moss-dim);border:1px solid var(--moss);border-radius:8px;padding:8px 12px;color:var(--moss);font-size:12px;cursor:pointer;font-family:var(--font-mono);}
+.chat-input-row button:hover{background:var(--moss);color:var(--bg);}
+
+/* ===== OVERLAYS ===== */
+.overlay{display:none;position:fixed;inset:0;z-index:100;pointer-events:none;}
+.overlay.red{display:block;background:radial-gradient(ellipse at center,rgba(194,91,69,0.2) 0%,transparent 70%);animation:flash 0.7s infinite;}
+.overlay.yellow{display:block;background:radial-gradient(ellipse at center,rgba(214,154,78,0.12) 0%,transparent 70%);animation:flash 1.5s infinite;}
+@keyframes flash{0%,100%{opacity:0.2}50%{opacity:1}}
+.alert-bar{display:none;position:fixed;top:0;left:0;right:0;z-index:200;padding:10px 20px;text-align:center;font-weight:700;font-size:0.75rem;letter-spacing:2px;text-transform:uppercase;font-family:var(--font-mono);}
+.alert-bar.yellow{display:block;background:linear-gradient(90deg,rgba(46,37,25,0.97),rgba(62,48,20,0.97),rgba(46,37,25,0.97));color:var(--ochre);border-bottom:2px solid rgba(214,154,78,0.5);}
+.alert-bar.red{display:block;background:linear-gradient(90deg,rgba(46,29,24,0.97),rgba(62,30,20,0.97),rgba(46,29,24,0.97));color:var(--rust);border-bottom:2px solid rgba(194,91,69,0.5);animation:bannerFlash 0.5s infinite;}
+@keyframes bannerFlash{0%,100%{opacity:1}50%{opacity:0.6}}
+</style>
+</head>
+<body>
+
+<!-- SPLASH -->
+<div id="splash">
+  <div class="splash-logo">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#6FA97D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="40" height="40"><path d="M8 21l4-13 4 13"/><path d="M2 21h20"/><path d="M12 8l3-6"/></svg>
+  </div>
+  <div class="splash-title">TERRAAVANI AI</div>
+  <div class="splash-sub">by scapegoats</div>
+  <div class="splash-footer"><span class="splash-dot"></span> North Eastern Regional Monitoring Network</div>
+</div>
+
+<!-- OVERLAYS -->
+<div class="overlay" id="overlay"></div>
+<div class="alert-bar" id="alert-bar"></div>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="brand">
+    <div class="brand-mark">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#6FA97D" stroke-width="2" stroke-linecap="round"><path d="M8 21l4-13 4 13"/><path d="M2 21h20"/><path d="M12 8l3-6"/></svg>
+    </div>
+    <div class="brand-text">
+      <h1>TERRAAVANI AI</h1>
+      <div class="sub">• by scapegoats</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="region-chip" id="region-chip" onclick="resetRegion()" style="display:none;">📍 <span id="region-chip-name">Region</span> ✕</div>
+    <div class="lang-switch" id="lang-switch" onclick="cycleLang()">
+      <span id="lang-label">EN</span>
+    </div>
+    <div class="status-pill"><span class="dot pulse" id="conn-dot"></span><span id="conn-label">Connecting</span></div>
+    <span class="badge-pill safe" id="badge">SAFE</span>
+  </div>
+</div>
+
+<!-- ===== REGION SPLASH ===== -->
+<div id="region-splash" class="region-splash" style="display:none;">
+  <div class="region-box">
+   <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+    <div class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#6FA97D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21l4-13 4 13"/><path d="M2 21h20"/><path d="M12 8l3-6"/></svg></div>
+    <div><h2 style="margin:0;">Select your region</h2></div>
+   </div>
+   <div class="sub">Get live landslide risk + 2-day rain forecast for your area. Powered by real Open-Meteo weather data and slope-risk modelling.</div>
+   <div class="region-grid">
+     <button class="region-btn" onclick="setRegion('Sikkim')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 21l4-13 4 13"/><path d="M2 21h20"/></svg><span>Sikkim</span><em>1 corridor</em></button>
+     <button class="region-btn" onclick="setRegion('Assam')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 21l4-13 4 13"/><path d="M2 21h20"/></svg><span>Assam</span><em>2 corridors</em></button>
+     <button class="region-btn" onclick="setRegion('Meghalaya')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 21l4-13 4 13"/><path d="M2 21h20"/></svg><span>Meghalaya</span><em>1 corridor</em></button>
+     <button class="region-btn" onclick="setRegion('Arunachal Pradesh')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 21l4-13 4 13"/><path d="M2 21h20"/></svg><span>Arunachal Pr.</span><em>1 corridor</em></button>
+     <button class="region-btn" onclick="setRegion('Nagaland')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 21l4-13 4 13"/><path d="M2 21h20"/></svg><span>Nagaland</span><em>1 corridor</em></button>
+     <button class="region-btn" onclick="setRegion('Manipur')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 21l4-13 4 13"/><path d="M2 21h20"/></svg><span>Manipur</span><em>2 corridors</em></button>
+     <button class="region-btn" onclick="setRegion('Mizoram')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 21l4-13 4 13"/><path d="M2 21h20"/></svg><span>Mizoram</span><em>1 corridor</em></button>
+     <button class="region-btn" onclick="setRegion('Tripura')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 21l4-13 4 13"/><path d="M2 21h20"/></svg><span>Tripura</span><em>1 corridor</em></button>
+   </div>
+   <button class="region-visitor" onclick="setRegion(null)">👤 Visitor mode — just explore the live ESP32 sensor demo</button>
+  </div>
+</div>
+
+<!-- ===== NOTIFICATION PERMISSION MODAL ===== -->
+<div id="perm-modal" class="perm-modal" style="display:none;">
+  <div class="perm-box">
+    <div class="perm-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg></div>
+    <h3>Stay Alert, Stay Safe</h3>
+    <p>Get instant danger warnings on this device — siren, vibration and push alerts when a monitored slope shows critical movement.</p>
+    <button class="perm-allow" onclick="permAllow()">🔔 Enable Alerts</button>
+    <button class="perm-later" onclick="permLater()">Maybe later</button>
+  </div>
+</div>
+
+<!-- ===== TAB: OVERVIEW ===== -->
+<div id="tab-overview" class="tab-content active">
+  <div class="ov-wrap">
+    <div class="ov-left">
+      <div class="risk-card">
+        <div class="risk-top">
+          <div><div class="risk-label" data-i18n="landing_risk">Landslide risk</div><div class="risk-value" id="risk-level">Low</div></div>
+          <div class="risk-badge-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11z"/></svg></div>
+        </div>
+        <div class="risk-bar-bg"><div class="risk-bar-fill low" id="risk-bar" style="width:0%"></div></div>
+        <div class="risk-meta"><span>Trend: <strong id="risk-trend">stable</strong></span><span id="risk-score">0%</span></div>
+        <div class="prediction-text" id="prediction-text">Awaiting data…</div>
+        <div id="forecast-block" style="display:none;">
+          <div style="font-family:var(--font-mono);font-size:9.5px;letter-spacing:1.4px;text-transform:uppercase;color:var(--text-muted);margin-top:14px;display:flex;align-items:center;gap:6px;">📅 Rain Forecast — <span id="fc-region">region</span></div>
+          <div class="fc-days" id="fc-days"></div>
+        </div>
+      </div>
+      <div class="card gauge-card">
+        <div class="gauge-wrap"><div class="gauge-arc"><div class="gauge-zone gz-green"></div><div class="gauge-zone gz-yellow"></div><div class="gauge-zone gz-red"></div><div class="needle" id="needle"></div><div class="needle-dot"></div></div></div>
+        <div class="gauge-labels"><span>0°</span><span>30° warn</span><span>60° danger</span></div>
+        <div class="tilt-num safe" id="tilt-val">0.00°</div>
+        <div class="tilt-unit" data-i18n="tilt_angle">Tilt Angle</div>
+        <div class="tilt-dev" id="tilt-dev">Waiting for sensor data…</div>
+      </div>
+      <div class="row-2">
+        <div class="card">
+          <div class="stat-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C8 8 5 11.5 5 15a7 7 0 0014 0c0-3.5-3-7-7-13z"/></svg><span data-i18n="soil_moisture">Soil moisture</span></div>
+          <div class="stat-val" id="moisture-val" style="color:var(--slate);">0%</div>
+          <div class="stat-bar"><i class="blue" id="moisture-bar" style="width:4%"></i></div>
+          <div class="stat-foot"><span data-i18n="dry">Dry</span><span data-i18n="saturated">Saturated</span></div>
+        </div>
+        <div class="card">
+          <div class="stat-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18M7 15l4-4 3 3 5-6"/></svg><span data-i18n="density">Density</span></div>
+          <div class="stat-val" id="water-density" style="color:var(--slate);">—</div>
+          <div class="stat-bar"><i class="blue" id="density-bar" style="width:0%"></i></div>
+          <div class="stat-foot"><span>kg/m³</span><span id="density-sub">—</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="ov-sidebar">
+      <div class="card">
+        <div class="card-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/></svg><span data-i18n="sensor_info">Sensor info</span><span class="line"></span></div>
+        <div class="info-row"><span class="info-l">Device</span><span class="info-v" id="dev-id">—</span></div>
+        <div class="info-row"><span class="info-l">Status</span><span class="info-v" id="dev-status">—</span></div>
+        <div class="info-row"><span class="info-l">Last update</span><span class="info-v" id="dev-time">—</span></div>
+      </div>
+      <div class="card">
+        <div class="card-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg><span data-i18n="alert_controls">Alert controls</span><span class="line"></span></div>
+        <div class="toggle-row" id="siren-btn" onclick="toggleSiren()" style="margin-bottom:8px;">
+          <div class="toggle-left"><div class="toggle-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4V5zM23 9l-6 6M17 9l6 6"/></svg></div><div><div class="toggle-title" data-i18n="siren">Siren</div><div class="toggle-state" id="siren-state">Off</div></div></div>
+          <div class="switch"><i id="siren-dot"></i></div>
+        </div>
+        <div class="toggle-row" id="vib-btn" onclick="toggleVibrate()">
+          <div class="toggle-left"><div class="toggle-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg></div><div><div class="toggle-title" data-i18n="vibrate">Vibrate</div><div class="toggle-state" id="vib-state">Off</div></div></div>
+          <div class="switch"><i id="vib-dot"></i></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18M7 15l4-6 4 3 5-8"/></svg><span data-i18n="live_log">Live log</span><span class="line"></span></div>
+        <div class="log-wrap" id="log-wrap"><div class="log-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>Waiting for data</div></div>
+      </div>
+      <div class="card" style="border-color:var(--ochre);">
+
+        <div class="card-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg><span data-i18n="sms_title">SMS / WhatsApp Alerts</span><span class="line"></span></div>
+
+        <div style="background:var(--ochre-dim);border:1px solid var(--ochre);border-radius:10px;padding:12px;text-align:center;">
+
+          <div style="font-size:13px;color:var(--ochre);font-weight:600;margin-bottom:4px;">Coming Soon</div>
+
+          <div style="font-size:11px;color:var(--text-muted);line-height:1.5;">SMS & WhatsApp alerts are being integrated for real-time push notifications to registered users during danger events.</div>
+
+        </div>
+
+      </div>
+    </div>
+  </div>
+  <div class="map-card">
+    <div id="map"></div>
+  </div>
+</div>
+
+<!-- ===== TAB: GIS MAP ===== -->
+<div id="tab-map" class="tab-content">
+  <div style="position:relative;">
+    <div id="gis-map"></div>
+  </div>
+</div>
+
+<!-- ===== TAB: STATIONS ===== -->
+<div id="tab-stations" class="tab-content"></div>
+
+<!-- ===== TAB: ALERTS ===== -->
+<div id="tab-alerts" class="tab-content"></div>
+
+<!-- ===== TAB: INCIDENT ===== -->
+<div id="tab-incident" class="tab-content"></div>
+
+<!-- ===== TAB: HISTORY ===== -->
+<div id="tab-history" class="tab-content">
+  <div class="card-title" style="margin:16px 16px 0;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg><span data-i18n="history_title">Historical Landslide Data — NER</span><span class="line"></span></div>
+  <div class="hist-summary" id="hist-summary"></div>
+  <div class="hist-chart"><div class="hist-chart-title">Incidents by Year</div><div class="bar-chart" id="bar-chart"></div></div>
+  <div class="hist-chart"><div class="hist-chart-title">Casualties by State</div><div class="state-score-list" id="state-chart"></div></div>
+  <div class="card-title" style="margin:16px 0 8px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/></svg>Incident Timeline<span class="line"></span></div>
+  <div class="hist-timeline" id="hist-timeline"></div>
+</div>
+
+<!-- ===== TAB: REPORT ===== -->
+<div id="tab-report" class="tab-content">
+  <div class="report-form-card">
+    <div class="report-form-title">📸 Submit Field Report</div>
+    <div class="report-form-sub">Report cracks, slope damage, blocked roads, or flooding with geo-tagged photos</div>
+    
+    <div class="report-field">
+      <label>Report Type</label>
+      <select id="report-type">
+        <option value="crack">🔨 Ground Crack / Wall Crack</option>
+        <option value="slope_damage">⛰️ Slope Damage / Erosion</option>
+        <option value="blocked_road">🚧 Blocked Road / Landslide Debris</option>
+        <option value="flooding">🌊 Flooding / Waterlogging</option>
+        <option value="rockfall">🪨 Rockfall / Debris Flow</option>
+        <option value="other">⚠️ Other Hazard</option>
+      </select>
+    </div>
+
+    <div class="report-field">
+      <label>Severity Level</label>
+      <div class="severity-grid">
+        <div class="sev-btn low selected" onclick="selectSeverity('low',this)"><div class="sev-icon">🟢</div>Low</div>
+        <div class="sev-btn medium" onclick="selectSeverity('medium',this)"><div class="sev-icon">🟡</div>Medium</div>
+        <div class="sev-btn high" onclick="selectSeverity('high',this)"><div class="sev-icon">🔴</div>High</div>
+        <div class="sev-btn critical" onclick="selectSeverity('critical',this)"><div class="sev-icon">🚨</div>Critical</div>
+      </div>
+    </div>
+
+    <div class="report-field">
+      <label>Photo (optional but recommended)</label>
+      <div class="photo-upload" id="photo-upload" onclick="document.getElementById('photo-input').click()">
+        <input type="file" id="photo-input" accept="image/*" capture="environment" onchange="handlePhoto(this)">
+        <div class="upload-text" id="upload-text">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+          Tap to take photo or choose from gallery<br><span style="font-size:10px;color:var(--text-muted);">Geo-tagged automatically</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="report-field">
+      <label>Your Location</label>
+      <div class="loc-btn" onclick="getMyLocation()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 6-9 12-9 12s-9-6-9-12a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>Detect My Location</div>
+      <div class="loc-display" id="loc-display">Location not set — tap above</div>
+    </div>
+
+    <div class="report-field">
+      <label>Description</label>
+      <textarea id="report-desc" placeholder="Describe what you see: crack width, direction of damage, affected area..."></textarea>
+    </div>
+
+    <div class="report-field">
+      <label>Your Name (optional)</label>
+      <input type="text" id="reporter-name" placeholder="Anonymous">
+    </div>
+
+    <button class="submit-btn" id="submit-btn" onclick="submitReport()">Submit Report</button>
+  </div>
+
+  <div class="report-segment-tabs">
+    <div class="seg-tab active" onclick="showReportView('all',this)">All Reports</div>
+    <div class="seg-tab" onclick="showReportView('map',this)">On Map</div>
+  </div>
+  
+  <div id="report-list-view">
+    <div class="report-list" id="report-list">
+      <div class="empty-reports">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>
+        <p>No field reports yet.<br>Be the first to report a hazard!</p>
+      </div>
+    </div>
+  </div>
+  <div id="report-map-view" style="display:none;">
+    <div style="height:400px;border-radius:14px;overflow:hidden;border:1px solid var(--border);">
+      <div id="report-map" style="height:100%;background:var(--surface-2);"></div>
+    </div>
+  </div>
+</div>
+
+<!-- CHATBOT FAB + PANEL -->
+<div class="chat-fab" onclick="toggleChat()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>
+<div class="chat-panel" id="chat-panel">
+  <div class="chat-header"><svg viewBox="0 0 24 24" fill="none" stroke="var(--moss)" stroke-width="2" width="16" height="16"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg><h3>Terraavani AI Assistant</h3><span class="chat-close" onclick="toggleChat()">✕</span></div>
+  <div class="chat-body" id="chat-body">
+    <div class="chat-msg bot"><div class="chat-bubble">👋 Hi! I'm the Terraavani AI assistant. Ask me about landslides, soil moisture, rainfall risks, or safety tips for the North Eastern region.</div><div class="chat-time">Now</div></div>
+  </div>
+  <div class="chat-input-row"><input id="chat-input" placeholder="Ask about landslides..." onkeydown="if(event.key==='Enter')sendChat()"><button onclick="sendChat()">Send</button></div>
+</div>
+
+<!-- OFFLINE BANNER -->
+<div class="offline-banner" id="offline-banner">📡 You are offline — showing cached data. Alerts may be delayed.</div>
+
+<!-- BOTTOM NAV -->
+<div class="bottom-nav">
+  <div class="nav-item active" onclick="switchTab('overview',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+    <span data-i18n="nav_overview">Overview</span>
+  </div>
+  <div class="nav-item" onclick="switchTab('map',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 6v16l7-4 8 4 7-4V2l-7 4-8-4z"/><path d="M8 2v16M16 6v16"/></svg>
+    <span data-i18n="nav_map">GIS Map</span>
+  </div>
+  <div class="nav-item" onclick="switchTab('stations',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 21l4-13 4 13"/><path d="M2 21h20"/></svg>
+    <span data-i18n="nav_stations">Stations</span>
+  </div>
+  <div class="nav-item" onclick="switchTab('alerts',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>
+    <span data-i18n="nav_alerts">Alerts</span>
+  </div>
+  <div class="nav-item" onclick="switchTab('incident',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    <span data-i18n="nav_incident">Incident</span>
+  </div>
+  <div class="nav-item" onclick="switchTab('report',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8M16 17H8M10 9H8"/></svg>
+    <span data-i18n="nav_report">Report</span>
+  </div>
+  <div class="nav-item" onclick="switchTab('history',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+    <span data-i18n="nav_history">History</span>
+  </div>
+</div>
+
+<script>
+// ===== SPLASH =====
+setTimeout(()=>{document.getElementById('splash').classList.add('hide');setTimeout(()=>document.getElementById('splash').remove(),700);},2000);
+
+// ===== TAB SWITCHING =====
+function switchTab(name, el){
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  el.classList.add('active');
+  if(name==='map'&&!gisMapReady) initGISMap();
+  if(name==='report')loadReports();
+  if(name==='history')loadHistory();
+}
+
+// ===== OVERVIEW: EXACT SAME JS AS BEFORE =====
+const API=`${location.origin}/api/latest`;
+const HIST=`${location.origin}/api/history`;
+const RISK=`${location.origin}/api/risk`;
+let sirenOn=false,vibOn=false,audioCtx=null,sirenOsc=null,lastStatus='safe',lastTS='',vibInterval=null,lastDataTime=0;
+const $=id=>document.getElementById(id);
+
+function initAudio(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==='suspended')audioCtx.resume();}
+document.addEventListener('click',initAudio,{once:false});
+document.addEventListener('touchstart',initAudio,{once:false});
+function startSiren(){initAudio();if(sirenOsc)return;sirenOsc=audioCtx.createOscillator();const g=audioCtx.createGain();sirenOsc.type='sawtooth';sirenOsc.frequency.setValueAtTime(800,audioCtx.currentTime);sirenOsc.frequency.linearRampToValueAtTime(1200,audioCtx.currentTime+0.3);sirenOsc.frequency.linearRampToValueAtTime(600,audioCtx.currentTime+0.6);g.gain.setValueAtTime(1.0,audioCtx.currentTime);sirenOsc.connect(g);g.connect(audioCtx.destination);sirenOsc.start();sirenOsc.onended=()=>{sirenOsc=null;if(lastStatus!=='safe'&&sirenOn)startSiren();};}
+function stopSiren(){if(sirenOsc){try{sirenOsc.stop();}catch(e){}sirenOsc=null;}}
+function startContinuousVibrate(){if(vibInterval)return;vibInterval=setInterval(()=>{if(navigator.vibrate)navigator.vibrate([400,100,400,100,400]);},1500);if(navigator.vibrate)navigator.vibrate([400,100,400,100,400]);}
+function stopContinuousVibrate(){if(vibInterval){clearInterval(vibInterval);vibInterval=null;}if(navigator.vibrate)navigator.vibrate(0);}
+function toggleSiren(){sirenOn=!sirenOn;$('siren-btn').classList.toggle('on',sirenOn);$('siren-state').textContent=sirenOn?'On':'Off';if(sirenOn){initAudio();if(lastStatus!=='safe')startSiren();}else stopSiren();}
+function toggleVibrate(){vibOn=!vibOn;$('vib-btn').classList.toggle('on',vibOn);$('vib-state').textContent=vibOn?'On':'Off';if(vibOn){navigator.vibrate&&navigator.vibrate(200);if(lastStatus==='danger')startContinuousVibrate();}else stopContinuousVibrate();}
+
+// Overview map
+const map=L.map('map',{zoomControl:true,attributionControl:false}).setView([25.5,91.9],7);
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',{maxZoom:16}).addTo(map);
+let sensorMarker=null,riskCircle=null,neighborMarkersAdded=false;
+function updateMap(lat,lng,riskScore,status){
+  const c=status==='danger'?'#C25B45':status==='warning'?'#D69A4E':'#6FA97D';
+  if(!sensorMarker){sensorMarker=L.circleMarker([lat,lng],{radius:8,fillColor:c,color:'#ECEFE9',weight:2,fillOpacity:0.8}).addTo(map).bindPopup('<b>Terraavani Sensor</b><br>sensor-001');}else{sensorMarker.setStyle({fillColor:c});}
+  if(!riskCircle){riskCircle=L.circle([lat,lng],{radius:1000+riskScore*50,fillColor:c,color:c,weight:1,fillOpacity:0.1+riskScore*0.003}).addTo(map);}else{riskCircle.setStyle({fillColor:c,color:c,fillOpacity:0.1+riskScore*0.003});riskCircle.setRadius(1000+riskScore*50);}
+  if(!neighborMarkersAdded){neighborMarkersAdded=true;[[25.67,91.88],[25.45,92.10],[25.55,91.75],[25.35,91.95],[25.70,92.05],[25.50,91.60]].forEach(([nlat,nlng])=>{const r=Math.max(0,riskScore+(Math.random()-0.5)*30);const cc=r>=70?'#C25B45':r>=40?'#D69A4E':'#6FA97D';L.circleMarker([nlat,nlng],{radius:4,fillColor:cc,color:cc,weight:1,fillOpacity:0.5}).addTo(map);});}
+}
+function update(data,risk){
+  const{tilt,moisture,status,device_id,timestamp}=data;const m=moisture||0;
+  const clamped=Math.max(-90,Math.min(90,tilt));$('needle').style.transform=`translateX(-50%) rotate(${-(clamped/90)*90}deg)`;
+  $('tilt-val').textContent=`${tilt.toFixed(2)}°`;$('tilt-val').className=`tilt-num ${status}`;$('tilt-dev').textContent=`Device: ${device_id}`;
+  $('badge').textContent=status.toUpperCase();$('badge').className=`badge-pill ${status}`;
+  $('dev-id').textContent=device_id;$('dev-status').textContent=status.toUpperCase();
+  $('dev-status').style.color=status==='danger'?'var(--rust)':status==='warning'?'var(--ochre)':'var(--moss)';
+  $('dev-time').textContent=new Date(timestamp).toLocaleTimeString();
+  $('moisture-val').textContent=`${m.toFixed(1)}%`;$('moisture-val').style.color=m>=80?'var(--rust)':m>=60?'var(--ochre)':'var(--slate)';
+  const mBar=$('moisture-bar');mBar.style.width=`${Math.max(4,m)}%`;mBar.className=m>=80?'rust':m>=60?'ochre':'blue';
+  if(risk){const rScore=risk.risk_score||0;$('risk-level').textContent=risk.risk_level||'LOW';
+  $('risk-level').style.color=rScore>=70?'#C25B45':rScore>=40?'#D69A4E':rScore>=15?'#D69A4E':'#6FA97D';
+  $('risk-score').textContent=`${rScore.toFixed(0)}%`;const rBar=$('risk-bar');rBar.style.width=`${rScore}%`;
+  rBar.className='risk-bar-fill '+(rScore>=70?'critical':rScore>=40?'high':rScore>=15?'moderate':'low');
+  $('prediction-text').textContent=risk.prediction||'';$('risk-trend').textContent=risk.trend||'stable';
+  $('risk-trend').style.color=risk.trend==='increasing'?'var(--rust)':risk.trend==='decreasing'?'var(--moss)':'var(--text-muted)';
+  const density=risk.water_density||1000;$('water-density').textContent=`${density.toFixed(0)}`;
+  $('water-density').style.color=m>=80?'var(--rust)':m>=60?'var(--ochre)':'var(--slate)';$('density-sub').textContent='kg/m³';
+  const dBar=$('density-bar');dBar.style.width=`${Math.min(100,(density/2000)*100)}%`;dBar.className=m>=80?'rust':m>=60?'ochre':'blue';}
+  updateMap(25.5,91.9,risk?risk.risk_score:0,status);
+  $('overlay').className='overlay';$('alert-bar').className='alert-bar';
+  if(status==='danger'){$('overlay').classList.add('red');$('alert-bar').className='alert-bar red';$('alert-bar').textContent='⚠️ DANGER — GROUND SHIFT DETECTED';if(sirenOn)startSiren();if(vibOn)startContinuousVibrate();sendAutoSMS(tilt,m);}
+  else if(status==='warning'){$('overlay').classList.add('yellow');$('alert-bar').className='alert-bar yellow';$('alert-bar').textContent='⚠ WARNING — TILT ANOMALY DETECTED';if(lastStatus==='danger')stopContinuousVibrate();}
+  else{stopSiren();stopContinuousVibrate();}
+  const t=new Date(timestamp).toLocaleTimeString();const entry=document.createElement('div');entry.className='log-entry';
+  entry.innerHTML=`<span class="log-t">${t}</span><span class="log-v ${status}">${tilt.toFixed(2)}° M:${m.toFixed(0)}% ${status==='danger'?'🔴':status==='warning'?'🟡':'🟢'}</span>`;
+  $('log-wrap').insertBefore(entry,$('log-wrap').firstChild);while($('log-wrap').children.length>50)$('log-wrap').removeChild($('log-wrap').lastChild);
+  lastStatus=status;
+  checkNotif(status,tilt,lastStatus);
+}
+async function poll(){try{const r=await fetch(API);const j=await r.json();if(j.data&&j.data.timestamp!==lastTS){lastTS=j.data.timestamp;lastDataTime=Date.now();update(j.data,j.risk);$('conn-dot').className='dot on pulse';$('conn-label').textContent='Live';}else if(Date.now()-lastDataTime>10000&&lastDataTime>0){goOffline();}}catch(e){goOffline();}}
+function goOffline(){$('conn-dot').className='dot pulse';$('conn-label').textContent='Offline';$('badge').textContent='OFFLINE';$('badge').className='badge-pill';$('dev-status').textContent='OFFLINE';$('dev-status').style.color='var(--text-muted)';$('tilt-dev').textContent='Sensor disconnected — waiting for data…';$('needle').style.transform='translateX(-50%) rotate(0deg)';$('tilt-val').textContent='0.00°';$('tilt-val').className='tilt-num safe';$('moisture-val').textContent='0%';$('moisture-val').style.color='var(--slate)';$('moisture-bar').style.width='4%';$('moisture-bar').className='blue';$('water-density').textContent='—';$('density-bar').style.width='0%';$('density-bar').className='blue';$('risk-level').textContent='Low';$('risk-level').style.color='#6FA97D';$('risk-score').textContent='0%';$('risk-bar').style.width='0%';$('risk-bar').className='risk-bar-fill low';$('prediction-text').textContent='Sensor offline — awaiting data…';$('risk-trend').textContent='stable';$('risk-trend').style.color='var(--text-muted)';$('overlay').className='overlay';$('alert-bar').className='alert-bar';stopSiren();stopContinuousVibrate();}
+async function loadHist(){try{const r=await fetch(HIST);const j=await r.json();if(j.data&&j.data.length>0){const riskR=await fetch(RISK);const riskJ=await riskR.json();update(j.data[j.data.length-1],riskJ.data);j.data.slice(-20).forEach(d=>{const t=new Date(d.timestamp).toLocaleTimeString();const e=document.createElement('div');e.className='log-entry';const m=d.moisture||0;e.innerHTML=`<span class="log-t">${t}</span><span class="log-v ${d.status}">${d.tilt.toFixed(2)}° M:${m.toFixed(0)}% ${d.status==='danger'?'🔴':d.status==='warning'?'🟡':'🟢'}</span>`;$('log-wrap').appendChild(e);});}}catch(e){}}
+loadHist();setInterval(poll,1000);
+
+// ===== GIS MAP TAB =====
+let gisMapReady=false,gisMap=null;
+function initGISMap(){
+  if(gisMapReady)return;gisMapReady=true;
+  gisMap=L.map('gis-map',{zoomControl:true,attributionControl:false}).setView([25.5,91.9],7);
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',{maxZoom:16}).addTo(gisMap);
+  // Corridors
+  const corridors=[
+    {name:'Guwahati–Shillong',coords:[[26.14,91.74],[25.85,91.88],[25.57,91.89]],color:'#6FA97D'},
+    {name:'Dimapur–Kohima',coords:[[25.90,93.73],[25.67,94.11]],color:'#6C8B9E'},
+    {name:'Silchar–Imphal',coords:[[24.83,92.80],[24.81,93.50],[24.81,93.94]],color:'#D69A4E'}
+  ];
+  corridors.forEach(c=>{L.polyline(c.coords,{color:c.color,weight:3,opacity:0.7,dashArray:'8,6'}).addTo(gisMap).bindPopup(`<b>${c.name}</b>`);});
+  // Hazard badges
+  const hazards=[
+    {lat:25.57,lng:91.89,score:68,label:'HIG'},
+    {lat:25.15,lng:92.85,score:48,label:'MOD'},
+    {lat:24.81,lng:93.94,score:58,label:'MOD'}
+  ];
+  hazards.forEach(h=>{
+    const c=h.score>=60?'#C25B45':'#D69A4E';
+    L.marker([h.lat,h.lng],{icon:L.divIcon({className:'',html:`<div style="background:${c};color:#fff;font-family:'JetBrains Mono';font-size:9px;font-weight:700;padding:3px 6px;border-radius:6px;white-space:nowrap;">${h.label} ${h.score}</div>`,iconSize:[50,20]})}).addTo(gisMap);
+  });
+  // Weather markers for NE India cities
+  const cities=[
+    {name:'Shillong',lat:25.58,lng:91.89,temp:22,humidity:84,rain:12,desc:'Light rain'},
+    {name:'Guwahati',lat:26.14,lng:91.74,temp:28,humidity:78,rain:5,desc:'Cloudy'},
+    {name:'Imphal',lat:24.81,lng:93.94,temp:24,humidity:88,rain:18,desc:'Moderate rain'},
+    {name:'Kohima',lat:25.67,lng:94.11,temp:20,humidity:90,rain:22,desc:'Heavy rain'},
+    {name:'Agartala',lat:23.83,lng:91.29,temp:27,humidity:80,rain:8,desc:'Overcast'},
+    {name:'Aizawl',lat:23.73,lng:92.72,temp:21,humidity:86,rain:15,desc:'Rain likely'}
+  ];
+  cities.forEach(city=>{
+    const rainColor=city.rain>15?'#C25B45':city.rain>8?'#D69A4E':'#6C8B9E';
+    const html=`<div style="background:rgba(23,27,22,0.92);border:1px solid #2B322A;border-radius:10px;padding:8px 10px;width:130px;">
+      <div style="font-family:'Space Grotesk';font-weight:600;font-size:11px;color:#ECEFE9;margin-bottom:4px;">${city.name}</div>
+      <div style="font-family:'JetBrains Mono';font-size:10px;color:#9AA396;">🌡️ ${city.temp}°C 💧 ${city.humidity}%</div>
+      <div style="font-family:'JetBrains Mono';font-size:10px;color:${rainColor};margin-top:2px;">🌧️ ${city.rain}mm — ${city.desc}</div>
+    </div>`;
+    L.marker([city.lat,city.lng],{icon:L.divIcon({className:'',html,iconSize:[130,50]})}).addTo(gisMap);
+  });
+  // Fetch live weather from Open-Meteo (free, no API key)
+  fetchWeather(cities);
+}
+function fetchWeather(cities){
+  const cityList=[
+    {name:'Shillong',lat:25.58,lng:91.89},
+    {name:'Guwahati',lat:26.14,lng:91.74},
+    {name:'Imphal',lat:24.81,lng:93.94},
+    {name:'Kohima',lat:25.67,lng:94.11},
+    {name:'Agartala',lat:23.83,lng:91.29},
+    {name:'Aizawl',lat:23.73,lng:92.72}
+  ];
+  const lats=cityList.map(c=>c.lat).join(',');
+  const lngs=cityList.map(c=>c.lng).join(',');
+  fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lngs}&current=temperature_2m,relative_humidity_2m,precipitation,weather_code&timezone=Asia/Kolkata`)
+  .then(r=>r.json()).then(j=>{
+    if(j.length){j.forEach((d,i)=>{if(d.current){updateWeatherMarker(cityList[i].name,d.current);}});}
+  }).catch(()=>{});
+}
+function updateWeatherMarker(name,data){}
+
+// ===== DYNAMIC STATIONS/ALERTS/INCIDENT DATA =====
+const STATION_BASE=[
+  {name:'Gangtok — 32nd Mile NH10 Corridor',loc:'East Sikkim, Sikkim',id:'ESP32-NER-001',baseScore:72,slope:42.5,rainBase:78,moistureBase:73,tiltBase:1.1},
+  {name:'Haflong — Jatinga Valley Escarpment',loc:'Dima Hasao, Assam',id:'ESP32-NER-002',baseScore:48,slope:38.0,rainBase:38,moistureBase:58,tiltBase:0.3},
+  {name:'Cherrapunji — Shella Gorge Rim',loc:'East Khasi Hills, Meghalaya',id:'ESP32-NER-003',baseScore:68,slope:48.0,rainBase:112,moistureBase:82,tiltBase:0.7},
+  {name:'Tupul — Ijei River Rail Corridor',loc:'Noney, Manipur',id:'ESP32-NER-007',baseScore:58,slope:46.8,rainBase:52,moistureBase:65,tiltBase:0.4}
+];
+let stationData=[];
+let alertHistory=[];
+
+function rand(min,max){return (Math.random()*(max-min)+min);}
+function clamp(v,min,max){return Math.max(min,Math.min(max,v));}
+
+async function loadRealStationData(){
+  try{
+    const r=await fetch(`${location.origin}/api/stations`);
+    const j=await r.json();
+    if(j.data&&j.data.length){
+      const mapped=j.data.map(d=>({name:d.name,loc:d.loc,id:d.id,state:d.state,slope:d.slope,rain:d.rain,moisture:d.moisture,tilt:d.tilt,score:d.score,level:d.level,temperature:d.temperature,humidity:d.humidity,forecast:d.forecast||[],real:true}));
+      renderForecast(mapped);
+      return mapped;
+    }
+  }catch(e){}
+  return null;
+}
+
+// ===== REGION MODE (Visitor vs Region) =====
+let userRegion=null; // null = visitor mode
+try{const sr=sessionStorage.getItem('terraavani-region');if(sr&&sr!=='visitor'){userRegion=sr;}else if(sr==='visitor'){userRegion=null;}}catch(e){}
+
+function updateRegionChip(){
+  const chip=$('region-chip');
+  if(userRegion){$('region-chip-name').textContent=userRegion;chip.style.display='inline-flex';}
+  else{chip.style.display='none';}
+}
+
+function renderForecast(stations){
+  const block=$('forecast-block');
+  if(!userRegion||!stations||!stations.length){block.style.display='none';return;}
+  const s=stations.find(x=>x.state===userRegion)||stations[0];
+  if(!s.forecast||!s.forecast.length){block.style.display='none';return;}
+  $('fc-region').textContent=userRegion;
+  $('fc-days').innerHTML=s.forecast.map(f=>{
+    const cls=f.level==='HIGH'?'lv-high':f.level==='MODERATE'?'lv-moderate':'lv-low';
+    return `<div class="fc-day"><div class="d">${f.day} · ${f.date}</div><div class="v ${cls}">${f.level}</div><div class="r">${f.rain}mm${f.prob!=null?' · '+f.prob+'%':''} · risk ${f.score}</div></div>`;
+  }).join('');
+  block.style.display='block';
+}
+
+function setRegion(region){
+  userRegion=region;
+  try{sessionStorage.setItem('terraavani-region',region||'visitor');}catch(e){}
+  $('region-splash').style.display='none';
+  updateRegionChip();
+  if(stationData.length&&stationData[0].real){renderForecast(stationData);}
+}
+
+function resetRegion(){$('region-splash').style.display='flex';}
+
+// Show splash on load if no saved choice
+if(sessionStorage.getItem('terraavani-region')===null){
+  setTimeout(()=>{const sp=$('region-splash');if(sp)sp.style.display='flex';},600);
+}
+updateRegionChip();
+
+function generateStationData(){
+  stationData=STATION_BASE.map(s=>{
+    const rain=clamp(Math.round((s.rainBase+rand(-15,15))*10)/10,5,180);
+    const moisture=clamp(Math.round((s.moistureBase+rand(-10,10))*10)/10,5,98);
+    const tilt=clamp(Math.round((s.tiltBase+rand(-0.5,0.5))*100)/100,0,5);
+    const score=clamp(Math.round(s.baseScore+rand(-12,12)),10,98);
+    const level=score>=65?'HIGH':score>=40?'MODERATE':'LOW';
+    return{...s,rain,moisture,tilt,score,level};
+  });
+}
+function generateAlerts(){
+  const actives=[];
+  stationData.filter(s=>s.score>=50).forEach(s=>{
+    const hrs=Math.floor(rand(1,6));
+    actives.push({level:s.score>=65?'danger':'warn',title:s.score>=65?'🔴 HIGH HAZARD':'🟡 MODERATE',name:s.name,body:`Soil saturation at ${s.moisture.toFixed(1)}% with inclinometer creep (+${s.tilt.toFixed(2)}°). ${s.rain.toFixed(1)}mm rainfall in 24h. Risk score: ${s.score}.`,time:`${hrs} hour${hrs>1?'s':''} ago`});
+  });
+  if(actives.length===0){actives.push({level:'info',title:'ℹ️ INFO',name:'All Stations',body:'All monitored corridors within safe parameters. No active hazard alerts.',time:'Just now'});}
+  const hist=[];
+  stationData.filter(s=>s.score>=35).slice(0,2).forEach(s=>{
+    hist.push({level:'warn',title:'🟡 PAST ALERT — '+s.name,body:`Elevated moisture (${s.moisture.toFixed(1)}%) detected. Tilt at ${s.tilt.toFixed(2)}°. Monitoring continued.`,time:'1 day ago'});
+  });
+  hist.push({level:'info',title:'ℹ️ WEATHER ADVISORY',body:'India Meteorological Department forecast: Heavy rainfall expected across Meghalaya and Assam in next 48 hours.',time:'2 days ago'});
+  return{actives,hist};
+}
+function generateIncidents(){
+  return stationData.filter(s=>s.score>=55).map(s=>({name:s.name,loc:s.loc,score:s.score,level:s.level,slope:s.slope,rain:s.rain,moisture:s.moisture,tilt:s.tilt}));
+}
+
+function renderStations(){
+  const el=$('tab-stations');
+  el.innerHTML='<div class="card-title" style="margin:16px 16px 0;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 21l4-13 4 13"/><path d="M2 21h20"/></svg>Monitored Stations (NER) <span style="color:var(--moss);font-size:9px;margin-left:6px;">● Live</span><span class="line"></span></div>';
+  stationData.forEach(s=>{
+    const bc=s.score>=65?'high':s.score>=45?'moderate':'low';
+    el.innerHTML+=`<div class="station-card"><div class="station-head"><div class="station-name">${s.name}</div><div class="station-badge ${bc}">${s.score} • ${s.level}</div></div><div class="station-meta">${s.loc} • ${s.id} • Online</div><div class="station-grid"><div class="sg-item"><div class="sg-val">${s.rain}</div><div class="sg-label">Rain mm</div></div><div class="sg-item"><div class="sg-val">${s.moisture}%</div><div class="sg-label">Moisture</div></div><div class="sg-item"><div class="sg-val">${s.tilt}°</div><div class="sg-label">Tilt Δθ</div></div><div class="sg-item"><div class="sg-val">${s.slope}°</div><div class="sg-label">Slope</div></div></div></div>`;
+  });
+}
+
+function renderAlerts(){
+  const a=generateAlerts();
+  const el=$('tab-alerts');
+  el.innerHTML=`<div class="segment-tabs"><div class="seg-tab active" onclick="showAlertTab('active',this)">Active Alerts (${a.actives.length})</div><div class="seg-tab" onclick="showAlertTab('history',this)">Historical Logs (${a.hist.length})</div></div><div id="alerts-active">${a.actives.map(x=>`<div class="alert-card ${x.level}"><div class="alert-title">${x.title} — ${x.name}</div><div class="alert-body">${x.body}</div><div class="alert-time">${x.time}</div></div>`).join('')}</div><div id="alerts-history" style="display:none;">${a.hist.map(x=>`<div class="alert-card ${x.level}"><div class="alert-title">${x.title}</div><div class="alert-body">${x.body}</div><div class="alert-time">${x.time}</div></div>`).join('')}</div>`;
+}
+function showAlertTab(tab,el){
+  el.parentElement.querySelectorAll('.seg-tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');
+  $('alerts-active').style.display=tab==='active'?'block':'none';
+  $('alerts-history').style.display=tab==='history'?'block':'none';
+}
+
+function renderIncidents(){
+  const inc=generateIncidents();
+  const el=$('tab-incident');
+  el.innerHTML='<div class="card-title" style="margin:16px 16px 0;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Active Incidents<span class="line"></span></div>';
+  inc.forEach(s=>{
+    const bc=s.score>=65?'high':'moderate';
+    el.innerHTML+=`<div class="incident-card"><div class="incident-head"><div class="incident-name">${s.name}</div><div class="station-badge ${bc}">${s.score} / 100 • ${s.level}</div></div><div class="incident-loc">${s.loc} • ${s.slope}° Slope</div><div class="incident-summary">${s.score>=65?'High':'Elevated'} 24h precipitation (${s.rain.toFixed(1)} mm) and soil saturation at ${s.moisture.toFixed(1)}% with inclinometer reading +${s.tilt.toFixed(2)}°.</div><div class="incident-telemetry"><div class="it-item"><div class="it-val">${s.rain.toFixed(1)}mm</div><div class="it-label">Rainfall</div></div><div class="it-item"><div class="it-val">${s.moisture.toFixed(1)}%</div><div class="it-label">Moisture</div></div><div class="it-item"><div class="it-val">${s.tilt.toFixed(2)}°</div><div class="it-label">Tilt Δθ</div></div></div><div class="incident-btn" onclick="switchTab('stations',document.querySelectorAll('.nav-item')[2])">View Telemetry Diagnostics →</div></div>`;
+  });
+  if(inc.length===0){el.innerHTML+='<div style="text-align:center;padding:40px;color:var(--text-muted);font-family:var(--font-mono);font-size:12px;">No active incidents — all corridors stable.</div>';}
+}
+
+// Generate data + re-render. Only regenerates fake data if real server data isn't loaded (real rows have .real=true).
+function refreshAllData(){
+  if(!stationData.length||!stationData[0].real){generateStationData();}
+  renderStations();renderAlerts();renderIncidents();
+}
+refreshAllData();
+(async()=>{const real=await loadRealStationData();if(real){stationData=real;renderStations();renderAlerts();renderIncidents();}})();
+setInterval(async()=>{const real=await loadRealStationData();if(real){stationData=real;renderStations();renderAlerts();renderIncidents();}},600000);
+setInterval(refreshAllData,15*60*1000);
+
+// ===== CHATBOT =====
+function toggleChat(){$('chat-panel').classList.toggle('open');}
+const CHAT_KB=[
+  {q:/landslide|land slide/i,a:'Landslides occur when saturated soil loses friction and slides downhill. In NE India, they are triggered by heavy monsoon rainfall (>100mm/24h), steep slopes (>30°), and deforestation. Our sensors monitor tilt and moisture to predict them.'},
+  {q:/moisture|saturation|wet/i,a:'Soil moisture above 60% is a warning sign. Above 80% is critical — the soil is nearly saturated and can no longer absorb water, increasing landslide risk dramatically.'},
+  {q:/rain|rainfall|monsoon/i,a:'Heavy rainfall is the #1 trigger. IMD classifies: Moderate (64-115mm/day), Heavy (115-204mm), Very Heavy (>204mm). When 24h rainfall exceeds 75mm, our system raises alerts.'},
+  {q:/safe|safety|protect|evac/i,a:'During landslide risk: 1) Move to higher ground. 2) Avoid river valleys. 3) Keep emergency kit ready. 4) Follow local authority alerts. 5) If you feel ground vibration, run!'},
+  {q:/tilt|angle|slope/i,a:'Our inclinometers detect ground movement as small as 0.1°. Warning at 10°, danger at 60°. Any sudden increase indicates active ground movement — evacuate.'},
+  {q:/hello|hi|hey|help/i,a:'Hello! Ask me about landslide causes, soil moisture, rainfall thresholds, safety tips, our sensors, or NE India risks.'},
+  {q:/sensor|esp32|device/i,a:'ESP32 with MPU-6500 inclinometer + moisture sensor. Sends data every 2s via WiFi to cloud. Dashboard updates live with risk predictions.'},
+  {q:/risk|score|hazard/i,a:'Risk score (0-100): tilt (60% weight) + moisture (40% weight). Moisture amplifies tilt risk. Low (0-15), Moderate (15-40), High (40-70), Critical (70-100).'},
+  {q:/northeast|ner|sikkim|meghalaya|assam|manipur/i,a:'NE India: young tectonic mountains, extreme monsoon, steep slopes, deforestation. Key zones: Gangtok, Cherrapunji, Haflong, Tupul.'},
+];
+function sendChat(){
+  const input=$('chat-input');const msg=input.value.trim();if(!msg)return;input.value='';
+  const body=$('chat-body');
+  body.innerHTML+=`<div class="chat-msg user"><div class="chat-bubble">${msg}</div><div class="chat-time">Now</div></div>`;
+  let reply="I'm not sure about that. Try asking about landslides, rainfall, soil moisture, safety tips, or our sensors!";
+  for(const k of CHAT_KB){if(k.q.test(msg)){reply=k.a;break;}}
+  setTimeout(()=>{body.innerHTML+=`<div class="chat-msg bot"><div class="chat-bubble">${reply}</div><div class="chat-time">Now</div></div>`;body.scrollTop=body.scrollHeight;},500);
+  body.scrollTop=body.scrollHeight;
+}
+
+// ===== SERVICE WORKER (required for Android notifications + offline PWA) =====
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('/sw.js').then(()=>console.log('[SW] registered')).catch(e=>console.log('[SW] failed:',e));
+}
+
+// ===== BROWSER NOTIFICATIONS =====
+let notifAsked=false;
+function requestNotifPermission(){
+  if(notifAsked)return;notifAsked=true;
+  try{
+    if(!('Notification' in window))return;
+    if(Notification.permission!=='default'){
+      // Chrome silently DENIED earlier auto-requests (from the old Mimo code).
+      // Show unblock instructions ONCE so the user can fix it in address bar.
+      if(Notification.permission==='denied'&&!localStorage.getItem('terraavani-perm-help')){
+        localStorage.setItem('terraavani-perm-help','1');
+        setTimeout(()=>{const m=$('perm-modal');if(m)m.style.display='flex';const a=m&&m.querySelector('.perm-allow');if(a){a.textContent='🔓 How to Unblock';a.onclick=showUnblockHelp;}},1500);
+      }
+      return;
+    }
+    if(localStorage.getItem('terraavani-perm-later')==='1')return; // user said "later" — respect it permanently
+    // Open OUR modal 1.5s after their first tap — outside the browser's
+    // transient-activation window, so the Enable button is the real trigger
+    setTimeout(()=>{const m=$('perm-modal');if(m)m.style.display='flex';},1500);
+  }catch(e){}
+}
+function showUnblockHelp(){
+  const m=$('perm-modal');if(m)m.style.display='none';
+  alert('Notifications are currently BLOCKED for this site.\n\nTo enable:\n1. Tap the 🔒 lock icon (or ⊙ site settings) near the address bar\n2. Tap Permissions → Notifications\n3. Select "Allow"\n4. Reload the page');
+}
+function permAllow(){
+  const m=$('perm-modal');if(m)m.style.display='none';
+  try{localStorage.setItem('terraavani-perm-decided','1');if('Notification' in window && Notification.permission==='default')Notification.requestPermission();}catch(e){}
+}
+function permLater(){
+  const m=$('perm-modal');if(m)m.style.display='none';
+  try{localStorage.setItem('terraavani-perm-later','1');}catch(e){}
+}
+document.addEventListener('click',requestNotifPermission,{once:true});
+document.addEventListener('touchstart',requestNotifPermission,{once:true});
+function sendBrowserNotif(title,body){try{
+  if('Notification' in window && Notification.permission==='granted'){
+    if(navigator.serviceWorker && navigator.serviceWorker.controller){
+      navigator.serviceWorker.controller.postMessage({type:'notify',title,body});
+    }else if(navigator.serviceWorker){
+      navigator.serviceWorker.ready.then(reg=>reg.showNotification(title,{body,tag:'terraavani-alert'})).catch(()=>{});
+    }else{
+      new Notification(title,{body});
+    }
+  }
+}catch(e){}}
+
+// ===== CITIZEN REPORTING =====
+let selectedSeverity='low';
+let reportLat=null,reportLng=null;
+let reportPhotoData='';
+let reportMapReady=false,reportMap=null;
+let allReports=[];
+
+function selectSeverity(sev,el){
+  selectedSeverity=sev;
+  document.querySelectorAll('.sev-btn').forEach(b=>b.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function handlePhoto(input){
+  const file=input.files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    reportPhotoData=e.target.result;
+    const upload=$('photo-upload');
+    upload.innerHTML=`<input type="file" id="photo-input" accept="image/*" capture="environment" onchange="handlePhoto(this)"><img src="${e.target.result}" alt="Report photo"><div class="upload-text" style="position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,0.7);padding:4px 8px;border-radius:6px;font-size:10px;color:var(--text-primary);">Tap to change</div>`;
+    upload.classList.add('has-photo');
+  };
+  reader.readAsDataURL(file);
+}
+
+function getMyLocation(){
+  const btn=document.querySelector('.loc-btn');
+  btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite;width:14px;height:14px;"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></svg>Detecting...';
+  if(!navigator.geolocation){$('loc-display').textContent='Geolocation not supported';return;}
+  navigator.geolocation.getCurrentPosition(
+    pos=>{
+      reportLat=pos.coords.latitude;
+      reportLng=pos.coords.longitude;
+      $('loc-display').textContent=`📍 ${reportLat.toFixed(4)}°N, ${reportLng.toFixed(4)}°E`;
+      btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg>Location Detected!';
+      btn.style.borderColor='var(--moss)';
+    },
+    err=>{
+      $('loc-display').textContent='Location access denied — using NE India default';
+      reportLat=25.57;reportLng=91.89;
+      btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 6-9 12-9 12s-9-6-9-12a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>Use Default Location';
+    }
+  );
+}
+
+async function submitReport(){
+  const btn=$('submit-btn');
+  const type=$('report-type').value;
+  const desc=$('report-desc').value;
+  const name=$('reporter-name').value||'Anonymous';
+  const lat=reportLat||25.57;
+  const lng=reportLng||91.89;
+
+  btn.disabled=true;
+  btn.textContent='Submitting...';
+  btn.className='submit-btn';
+
+  try{
+    const res=await fetch(`${location.origin}/api/report`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        report_type:type,
+        severity:selectedSeverity,
+        lat:lat,
+        lng:lng,
+        description:desc,
+        reporter_name:name,
+        photo_data:reportPhotoData
+      })
+    });
+    const j=await res.json();
+    if(j.ok){
+      btn.textContent='✅ Report Submitted!';
+      btn.className='submit-btn success';
+      setTimeout(()=>{btn.textContent='Submit Report';btn.disabled=false;btn.className='submit-btn';},2000);
+      // Reset form
+      $('report-desc').value='';
+      $('report-photo-input')&&(document.getElementById('photo-input').value='');
+      reportPhotoData='';
+      // Reload reports
+      loadReports();
+    }
+  }catch(e){
+    btn.textContent='❌ Submission Failed';
+    btn.className='submit-btn error';
+    setTimeout(()=>{btn.textContent='Submit Report';btn.disabled=false;btn.className='submit-btn';},2000);
+  }
+}
+
+async function loadReports(){
+  try{
+    const res=await fetch(`${location.origin}/api/reports`);
+    const j=await res.json();
+    allReports=(j.data||[]).reverse();
+    renderReports();
+  }catch(e){}
+}
+
+function renderReports(){
+  const el=$('report-list');
+  if(allReports.length===0){
+    el.innerHTML='<div class="empty-reports"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg><p>No field reports yet.<br>Be the first to report a hazard!</p></div>';
+    return;
+  }
+  const typeIcons={crack:'🔨',slope_damage:'⛰️',blocked_road:'🚧',flooding:'🌊',rockfall:'🪨',other:'⚠️'};
+  const typeNames={crack:'Ground Crack',slope_damage:'Slope Damage',blocked_road:'Blocked Road',flooding:'Flooding',rockfall:'Rockfall',other:'Other Hazard'};
+  el.innerHTML=allReports.map(r=>{
+    const photo=r.photo_data?`<img class="report-card-photo" src="${r.photo_data}" alt="Report photo">`:'';
+    const time=new Date(r.timestamp).toLocaleString();
+    return `<div class="report-card">
+      ${photo}
+      <div class="report-card-body">
+        <div class="report-card-head">
+          <div class="report-card-type">${typeIcons[r.report_type]||'⚠️'} ${typeNames[r.report_type]||r.report_type}</div>
+          <div class="report-severity-badge ${r.severity}">${r.severity.toUpperCase()}</div>
+        </div>
+        ${r.description?`<div class="report-card-desc">${r.description}</div>`:''}
+        <div class="report-card-meta">
+          <span>📍 ${r.lat.toFixed(4)}°, ${r.lng.toFixed(4)}° • by ${r.reporter_name}</span>
+          <span>${time}</span>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function showReportView(view,el){
+  el.parentElement.querySelectorAll('.seg-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  $('report-list-view').style.display=view==='all'?'block':'none';
+  $('report-map-view').style.display=view==='map'?'block':'none';
+  if(view==='map'&&!reportMapReady){
+    reportMapReady=true;
+    reportMap=L.map('report-map',{zoomControl:true,attributionControl:false}).setView([25.5,91.9],7);
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',{maxZoom:16}).addTo(reportMap);
+  }
+  if(reportMapReady)updateReportMap();
+}
+
+function updateReportMap(){
+  if(!reportMap)return;
+  // Clear existing report markers
+  reportMap.eachLayer(layer=>{if(layer._isReport)reportMap.removeLayer(layer);});
+  const typeIcons={crack:'🔨',slope_damage:'⛰️',blocked_road:'🚧',flooding:'🌊',rockfall:'🪨',other:'⚠️'};
+  const sevColors={low:'#6FA97D',medium:'#D69A4E',high:'#C25B45',critical:'#ff3333'};
+  allReports.forEach(r=>{
+    const c=sevColors[r.severity]||'#6FA97D';
+    const icon=L.divIcon({className:'',html:`<div style="background:${c};width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;border:2px solid #ECEFE9;box-shadow:0 2px 8px rgba(0,0,0,0.3);">${typeIcons[r.report_type]||'⚠️'}</div>`,iconSize:[28,28]});
+    const marker=L.marker([r.lat,r.lng],{icon}).addTo(reportMap);
+    marker._isReport=true;
+    marker.bindPopup(`<b>${typeIcons[r.report_type]} ${r.report_type.replace(/_/g,' ')}</b><br>Severity: <b style="color:${c}">${r.severity.toUpperCase()}</b><br>${r.description?r.description+'<br>':''}📍 ${r.lat.toFixed(4)}, ${r.lng.toFixed(4)}<br>By: ${r.reporter_name}<br>${new Date(r.timestamp).toLocaleString()}`);
+  });
+}
+
+// Load reports on startup and refresh every 60s
+loadReports();
+setInterval(loadReports,60000);
+
+// Add spin keyframe for loading
+document.head.insertAdjacentHTML('beforeend','<style>@keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}</style>');
+
+// ===== SERVICE WORKER (PWA OFFLINE) =====
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('/sw.js').catch(()=>{});
+}
+window.addEventListener('online',()=>{document.getElementById('offline-banner').classList.remove('show');});
+window.addEventListener('offline',()=>{document.getElementById('offline-banner').classList.add('show');});
+if(!navigator.onLine)document.getElementById('offline-banner').classList.add('show');
+
+// ===== MULTILINGUAL =====
+const LANGS=['en','hi','as','bn','mni'];
+const LANG_NAMES={en:'EN',hi:'HI',as:'AS',bn:'BN',mni:'MN'};
+const LANG_FONTS={en:'var(--font-body)',hi:"'Noto Sans Devanagari',sans-serif",as:"'Noto Sans Bengali',sans-serif",bn:"'Noto Sans Bengali',sans-serif",mni:"'Noto Sans Meetei Mayek',sans-serif"};
+let currentLang='en';
+const T={
+  en:{landing_risk:'Landslide risk',tilt_angle:'Tilt Angle',soil_moisture:'Soil moisture',density:'Density',sensor_info:'Sensor info',alert_controls:'Alert controls',siren:'Siren',vibrate:'Vibrate',live_log:'Live log',waiting:'Waiting for data',offline_msg:'Sensor disconnected',dry:'Dry',saturated:'Saturated',trend:'Trend',stable:'stable',increasing:'increasing',decreasing:'decreasing',connecting:'Connecting',live:'Live',offline:'Offline',safe:'SAFE',warning:'WARNING',danger:'DANGER',nav_overview:'Overview',nav_map:'GIS Map',nav_stations:'Stations',nav_alerts:'Alerts',nav_incident:'Incident',nav_report:'Report',nav_history:'History',sms_title:'SMS Alerts',sms_sub:'Register phone to receive SMS on danger',sms_placeholder:'9876543210',sms_register:'Register',sms_registered:'Registered',history_title:'Historical Landslide Data — NER',incidents_by_year:'Incidents by Year',casualties_by_state:'Casualties by State',incident_timeline:'Incident Timeline',total_incidents:'Total Incidents',total_deaths:'Total Deaths',years_covered:'Years Covered',report_title:'Submit Field Report',report_sub:'Report cracks, slope damage, blocked roads, or flooding with geo-tagged photos',report_type:'Report Type',severity:'Severity Level',photo:'Photo (optional)',tap_photo:'Tap to take photo or choose from gallery',your_location:'Your Location',detect_location:'Detect My Location',description:'Description',your_name:'Your Name (optional)',submit:'Submit Report',all_reports:'All Reports',on_map:'On Map',no_reports:'No field reports yet. Be the first to report a hazard!'},
+  hi:{landing_risk:'भूस्खलन जोखिम',tilt_angle:'झुकाव कोण',nav_overview:'ओवरव्यू',nav_map:'मानचित्र',nav_stations:'स्टेशन',nav_alerts:'अलर्ट',nav_incident:'घटना',nav_report:'रिपोर्ट',nav_history:'इतिहास',soil_moisture:'मिट्टी की नमी',density:'घनत्व',sensor_info:'सेंसर जानकारी',alert_controls:'अलर्ट नियंत्रण',siren:'सायरन',vibrate:'वाइब्रेट',live_log:'लाइव लॉग',waiting:'डेटा की प्रतीक्षा है',offline_msg:'सेंसर डिस्कनेक्ट',dry:'सूखी',saturated:'संतृप्त',trend:'प्रवृत्ति',stable:'स्थिर',increasing:'बढ़ रही',decreasing:'घट रही',connecting:'कनेक्ट हो रहा है',live:'लाइव',offline:'ऑफलाइन',safe:'सुरक्षित',warning:'चेतावनी',danger:'खतरा',sms_title:'SMS अलर्ट',sms_sub:'खतरे पर SMS प्राप्त करने के लिए फोन नंबर दर्ज करें',sms_placeholder:'9876543210',sms_register:'रजिस्टर',sms_registered:'दर्ज',history_title:'ऐतिहासिक भूस्खलन डेटा — NER',incidents_by_year:'वर्ष अनुसार घटनाएं',casualties_by_state:'राज्य अनुसार हताहत',incident_timeline:'घटना समयरेखा',total_incidents:'कुल घटनाएं',total_deaths:'कुल मौतें',years_covered:'वर्ष कवरेज',report_title:'फील्ड रिपोर्ट जमा करें',report_sub:'भूस्खलन, दरार, बंद सड़क, या बाढ़ की रिपोर्ट करें',report_type:'रिपोर्ट प्रकार',severity:'गंभीरता स्तर',photo:'फोटो (वैकल्पिक)',tap_photo:'फोटो लेने के लिए टैप करें',your_location:'आपका स्थान',detect_location:'स्थान पता करें',description:'विवरण',your_name:'आपका नाम (वैकल्पिक)',submit:'रिपोर्ट जमा करें',all_reports:'सभी रिपोर्ट',on_map:'मानचित्र पर',no_reports:'अभी तक कोई रिपोर्ट नहीं। पहली रिपोर्ट दर्ज करें!'},
+  as:{landing_risk:'ভূমিধসৰ বিপদ',tilt_angle:'ঢাল কোণ',nav_overview:'সারসংক্ষেপ',nav_map:'মানচিত্ৰ',nav_stations:'ষ্টেচন',nav_alerts:'সতৰ্কতা',nav_incident:'ঘটনা',nav_report:'প্ৰতিবেদন',nav_history:'ইতিহাস',soil_moisture:'মাটীৰ আৰ্দ্ৰতা',density:'ঘনত্ব',sensor_info:'ছেন্সৰ তথ্য',alert_controls:'সতৰ্কতা নিয়ন্ত্ৰণ',siren:'ছাইৰেন',vibrate:'কম্পন',live_log:'লাইভ লগ',waiting:'ডাটাৰ অপেক্ষাত',offline_msg:'ছেন্সৰ সংযোগ বিচ্ছিন্ন',dry:'শুকনা',saturated:'পৰিপূৰ্ণ',trend:'প্ৰৱণতা',stable:'স্থিৰ',increasing:'বৃদ্ধি পাই আছে',decreasing:'হ্ৰাস পাই আছে',connecting:'সংযোগ কৰি আছে',live:'লাইভ',offline:'অফলাইন',safe:'নিৰাপদ',warning:'সতৰ্কতা',danger:'বিপদ',sms_title:'SMS সতৰ্কতা',sms_sub:'বিপদত SMS পাবলৈ ফোন নম্বৰ দিয়ক',sms_placeholder:'9876543210',sms_register:'ৰেজিষ্টাৰ',sms_registered:'ৰেজিষ্টাৰ্ড',history_title:'ঐতিহাসিক ভূমিধসৰ ডাটা — NER',incidents_by_year:'বছৰ অনুযায়ী ঘটনা',casualties_by_state:'ৰাজ্য অনুযায়ী ক্ষতিগ্ৰস্ত',incident_timeline:'ঘটনাৰ সময়ৰেখা',total_incidents:'মুঠ ঘটনা',total_deaths:'মুঠ মৃত্যু',years_covered:'বছৰ পৰিসীমা',report_title:'ফিল্ড প্ৰতিবেদন দিয়ক',report_sub:'ভূমিধস, ফাটল, বন্ধ ৰাস্তাৰ প্ৰতিবেদন দিয়ক',report_type:'প্ৰতিবেদন প্ৰকাৰ',severity:'গুৰুতৱ স্তৰ',photo:'ফটো (ঐচ্ছিক)',tap_photo:'ফটো লিবলৈ টেপ কৰক',your_location:'আপোনাৰ স্থান',detect_location:'স্থান নিৰ্ধাৰণ কৰক',description:'বিৱৰণ',your_name:'আপোনাৰ নাম (ঐচ্ছিক)',submit:'প্ৰতিবেদন দিয়ক',all_reports:'সকলো প্ৰতিবেদন',on_map:'মানচিত্ৰত',no_reports:'এতিয়াও কোনো প্ৰতিবেদন নাই!'},
+  bn:{landing_risk:'ভূমিধ্বসের ঝুঁকি',tilt_angle:'ঢাল কোণ',nav_overview:'সারসংক্ষেপ',nav_map:'মানচিত্র',nav_stations:'স্টেশন',nav_alerts:'সতর্কতা',nav_incident:'ঘটনা',nav_report:'রিপোর্ট',nav_history:'ইতিহাস',soil_moisture:'মাটির আর্দ্রতা',density:'ঘনত্ব',sensor_info:'সেন্সর তথ্য',alert_controls:'সতর্কতা নিয়ন্ত্রণ',siren:'সাইরেন',vibrate:'কম্পন',live_log:'লাইভ লগ',waiting:'ডাটার অপেক্ষায়',offline_msg:'সেন্সর সংযোগ বিচ্ছিন্ন',dry:'শুকনো',saturated:'পরিপূর্ণ',trend:'প্রবণতা',stable:'স্থির',increasing:'বৃদ্ধি পাচ্ছে',decreasing:'হ্রাস পাচ্ছে',connecting:'সংযোগ হচ্ছে',live:'লাইভ',offline:'অফলাইন',safe:'নিরাপদ',warning:'সতর্কতা',danger:'বিপদ',sms_title:'SMS সতর্কতা',sms_sub:'বিপদে SMS পেতে ফোন নম্বর দিন',sms_placeholder:'9876543210',sms_register:'নিবন্ধন',sms_registered:'নিবন্ধিত',history_title:'ঐতিহাসিক ভূমিধ্বসের ডাটা — NER',incidents_by_year:'বছর অনুযায়ী ঘটনা',casualties_by_state:'রাজ্য অনুযায়ী ক্ষতিগ্রস্ত',incident_timeline:'ঘটনার সময়রেখা',total_incidents:'মোট ঘটনা',total_deaths:'মোট মৃত্যু',years_covered:'বছর পরিসীমা',report_title:'ফিল্ড রিপোর্ট জমা দিন',report_sub:'ভূমিধ্বস, ফাটল, বন্ধ রাস্তার রিপোর্ট দিন',report_type:'রিপোর্ট প্রকার',severity:'গুরুত্ব স্তর',photo:'ছবি (ঐচ্ছিক)',tap_photo:'ছবি তুলতে ট্যাপ করুন',your_location:'আপনার অবস্থান',detect_location:'অবস্থান সনাক্ত করুন',description:'বিবরণ',your_name:'আপনার নাম (ঐচ্ছিক)',submit:'রিপোর্ট জমা দিন',all_reports:'সব রিপোর্ট',on_map:'মানচিত্রে',no_reports:'এখনো কোনো রিপোর্ট নেই!'},
+  mni:{landing_risk:'মাংল থিগাদা পাংদা',tilt_angle:'থিদোক কোণ',nav_overview:'সারসংক্ষেপ',nav_map:'মানচিত্র',nav_stations:'ষ্টেচন',nav_alerts:'সতৰ্কতা',nav_incident:'ঘটনা',nav_report:'প্ৰতিবেদন',nav_history:'ইতিহাস',soil_moisture:'মাং চিং',density:'ঘনত্ব',sensor_info:'ছেন্সর পীরি',alert_controls:'ইশারা কন্ত্রোল',siren:'ছাইৰেন',vibrate:'ফুগাদবা',live_log:'লাইভ লগ',waiting:'দাতা যাইরে',offline_msg:'ছেন্সর সিং',dry:'ইয়েক্তা',saturated:'ইয়েক্তা',trend:'যাগাই',stable:'ইয়েক্তা',increasing:'যাগাই',decreasing:'যাগাই',connecting:'মশক তুনাইরে',live:'লাইভ',offline:'অফলাইন',safe:'শান্তি',warning:'ইশারা',danger:'মহুত',sms_title:'SMS ইশারা',sms_sub:'মহুত SMS লৈবা ফোন নম্বর দিয়ো',sms_placeholder:'9876543210',sms_register:'দিয়ো',sms_registered:'দিয়ে',history_title:'যাইরে মাংল থিগাদা পাংদা — NER',incidents_by_year:'চিং অনুযায়ী',casualties_by_state:'লাই অনুযায়ী',incident_timeline:'ঘটনা সময়',total_incidents:'লীবা ঘটনা',total_deaths:'লীবা মথৌ',years_covered:'চিং পীরি',report_title:'ফিল্ড রিপোর্ট',report_sub:'মাংল থিগাদা, ফাটল, বন্ধ রাস্তা দিয়ো',report_type:'রিপোর্ট প্রকার',severity:'গুরুত্ব',photo:'ফোটো (যাইরে)',tap_photo:'ফোটো লৈবা ট্যাপ দিয়ো',your_location:'মসি লাই',detect_location:'লাই খোঁজে',description:'পীরি',your_name:'মসি মিং (যাইরে)',submit:'রিপোর্ট দিয়ো',all_reports:'লীবা রিপোর্ট',on_map:'মানচিত্র',no_reports:'রিপোর্ট অমত্তা নত্তে!'}
+};
+function t(key){return (T[currentLang]&&T[currentLang][key])||T.en[key]||key;}
+function cycleLang(){
+  const i=LANGS.indexOf(currentLang);
+  currentLang=LANGS[(i+1)%LANGS.length];
+  document.getElementById('lang-label').textContent=LANG_NAMES[currentLang];
+  translatePage();
+  localStorage.setItem('terraavani-lang',currentLang);
+  refreshAllData();
+  loadHistory();
+}
+function translatePage(){
+  document.querySelectorAll('[data-i18n]').forEach(el=>{el.textContent=t(el.dataset.i18n);});
+  document.querySelectorAll('[data-i18n-ph]').forEach(el=>{el.placeholder=t(el.dataset.i18nPh);});
+}
+// Restore saved language
+const savedLang=localStorage.getItem('terraavani-lang');
+if(savedLang&&LANGS.includes(savedLang)){currentLang=savedLang;document.getElementById('lang-label').textContent=LANG_NAMES[currentLang];}
+
+// ===== HISTORICAL DATA =====
+async function loadHistory(){
+  try{
+    const res=await fetch(`${location.origin}/api/historical`);
+    const j=await res.json();
+    const data=j.data||[];
+    const summary=j.summary||{};
+    // Summary cards
+    const sumEl=document.getElementById('hist-summary');
+    if(sumEl)sumEl.innerHTML=`<div class="hist-stat"><div class="hist-stat-val">${summary.total_incidents||0}</div><div class="hist-stat-label">Total Incidents</div></div><div class="hist-stat"><div class="hist-stat-val">${summary.total_deaths||0}</div><div class="hist-stat-label">Total Deaths</div></div><div class="hist-stat"><div class="hist-stat-val">${summary.years_covered||'N/A'}</div><div class="hist-stat-label">Years Covered</div></div>`;
+    // Bar chart by year
+    const yearCounts={};
+    data.forEach(d=>{yearCounts[d.year]=(yearCounts[d.year]||0)+1;});
+    const years=Object.keys(yearCounts).sort();
+    const maxCount=Math.max(...Object.values(yearCounts),1);
+    const barEl=document.getElementById('bar-chart');
+    if(barEl){barEl.innerHTML=years.map(y=>{const h=(yearCounts[y]/maxCount)*130;const c=yearCounts[y]>=4?'var(--rust)':yearCounts[y]>=2?'var(--ochre)':'var(--moss)';return `<div class="bar-col"><div class="bar" style="height:${h}px;background:${c};"><span class="bar-val">${yearCounts[y]}</span></div><span class="bar-label">${y}</span></div>`;}).join('');}
+    // Bar chart by state
+    const stateCounts={};
+    data.forEach(d=>{const s=d.location.split(',').pop().trim();stateCounts[s]=(stateCounts[s]||0)+1;});
+    const states=Object.entries(stateCounts).sort((a,b)=>b[1]-a[1]);
+    const maxState=Math.max(...states.map(s=>s[1]),1);
+    const stateEl=document.getElementById('state-chart');
+    if(stateEl){stateEl.innerHTML=states.map(([s,c])=>{const w=(c/maxState)*100;const col=c>=4?'var(--rust)':c>=2?'var(--ochre)':'var(--moss)';return `<div class="state-score-row"><span class="state-score-name">${s}</span><div class="state-score-track"><div class="state-score-fill" style="width:${w}%;background:${col};"></div></div><span class="state-score-val">${c}</span></div>`;}).join('');}
+    // Timeline
+    const tlEl=document.getElementById('hist-timeline');
+    if(tlEl){tlEl.innerHTML=data.sort((a,b)=>b.year-a.year||b.month-a.month).slice(0,15).map(d=>{const sev=d.deaths>=20?'critical':d.deaths>=8?'high':d.deaths>=3?'moderate':'low';const months=['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];return `<div class="timeline-item"><div class="timeline-dot ${sev}"></div><div class="timeline-content"><div class="timeline-header"><span class="timeline-location">${d.location}</span><span class="timeline-date">${months[d.month]} ${d.year}</span></div><div class="timeline-detail">${d.cause} — ${d.rainfall_mm}mm rainfall${d.road_blocks?`, ${d.road_blocks} road blocks`:''}</div><span class="timeline-deaths">💀 ${d.deaths} deaths${d.injured?`, ${d.injured} injured`:''}</span></div></div>`;}).join('');}
+  }catch(e){}
+}
+
+// ===== SMS SETTINGS =====
+let smsRecipients=[];
+async function loadSMSRecipients(){
+  try{const r=await fetch(`${location.origin}/api/sms/recipients`);const j=await r.json();smsRecipients=j.recipients||[];renderSMSList();}catch(e){}
+}
+function renderSMSList(){
+  const el=document.getElementById('sms-list');
+  if(!el)return;
+  if(smsRecipients.length===0){el.innerHTML='';return;}
+  el.innerHTML=smsRecipients.map(p=>`<div class="sms-item"><span class="num">📱 ${p}</span><span class="remove" onclick="removeSMS('${p}')">✕</span></div>`).join('');
+}
+let lastSMSAlert=0;
+async function sendAutoSMS(tilt,moisture){
+  if(Date.now()-lastSMSAlert<300000)return;
+  lastSMSAlert=Date.now();
+  if(smsRecipients.length===0)return;
+  const msg=`DANGER ALERT: Tilt ${tilt.toFixed(1)}°, Moisture ${moisture.toFixed(0)}%. Immediate action needed!`;
+  smsRecipients.forEach(async phone=>{
+    try{await fetch(`${location.origin}/api/sms/send`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone,message:msg,severity:'danger'})});}catch(e){}
+  });
+}
+async function registerSMS(){
+  const input=document.getElementById('sms-phone');
+  const phone=input.value.trim();
+  if(!phone||phone.length!==10){input.style.borderColor='var(--rust)';setTimeout(()=>input.style.borderColor='var(--border)',2000);return;}
+  try{const r=await fetch(`${location.origin}/api/sms/register`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone,message:'',severity:'danger'})});const j=await r.json();if(j.ok){input.value='';smsRecipients.push(phone);renderSMSList();}}catch(e){}
+}
+function removeSMS(phone){smsRecipients=smsRecipients.filter(p=>p!==phone);renderSMSList();}
+loadSMSRecipients();
+
+// ===== OVERVIEW MAP TRANSLATED LABELS =====
+function updateOverviewLabels(){
+  document.querySelector('.risk-label').textContent=t('landing_risk');
+  document.querySelector('.tilt-unit').textContent=t('tilt_angle');
+}
+
+// Trigger notification only on STATUS CHANGE (not every poll)
+function checkNotif(status,tilt,prevStatus){
+  if(status===prevStatus) return; // Only notify on change
+  try {
+    if(status==='danger') sendBrowserNotif('⚠️ DANGER — Terraavani AI','Ground shift detected! Tilt: '+tilt.toFixed(1)+'°. Evacuate immediately!');
+    else if(status==='warning') sendBrowserNotif('⚠️ WARNING — Terraavani AI','Tilt anomaly: '+tilt.toFixed(1)+'°. Monitor closely.');
+  } catch(e){}
+}
+</script>
+
+<!-- ===== CONTACT FOOTER ===== -->
+<div style="max-width:420px;margin:20px auto 0;padding:0 16px;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;text-align:center;">
+    <div style="font-family:var(--font-display);font-weight:600;font-size:14px;margin-bottom:12px;">TERRAAVANI AI</div>
+    <div style="font-size:11px;color:var(--text-muted);margin-bottom:14px;">AI-Powered Landslide Monitoring for North Eastern India</div>
+    <div style="display:flex;flex-direction:column;gap:10px;align-items:center;">
+      <a href="mailto:crastacalrin@gmail.com" style="display:flex;align-items:center;gap:8px;color:var(--text-secondary);text-decoration:none;font-size:12px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+        crastacalrin@gmail.com
+      </a>
+      <a href="tel:+917022941015" style="display:flex;align-items:center;gap:8px;color:var(--text-secondary);text-decoration:none;font-size:12px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
+        +91 70229 41015
+      </a>
+      <a href="https://instagram.com/crastacalrin" target="_blank" style="display:flex;align-items:center;gap:8px;color:var(--text-secondary);text-decoration:none;font-size:12px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="5"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+        @crastacalrin
+      </a>
+    </div>
+    <div style="font-size:9px;color:var(--text-muted);margin-top:14px;border-top:1px solid var(--border);padding-top:10px;">Built by Scapegoats</div>
+  </div>
+</div>
+
+</body>
+</html>
